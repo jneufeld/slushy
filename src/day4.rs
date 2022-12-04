@@ -1,9 +1,7 @@
+use lazy_static::lazy_static;
 use regex::Regex;
 
 /// Solves part two of day 4's problem: https://adventofcode.com/2022/day/4
-/// 
-/// TODO after refactoring to this code I noticed the solution takes nearly a
-/// second to execute!
 pub fn solve() {
     let mut overlapping_sections = 0;
 
@@ -56,9 +54,7 @@ impl Section {
     ///
     /// This function will `panic` if parsing fails.
     fn parse(text: &str) -> Section {
-        // If this were production then `unwrap()` should be (close to?) forbidden
-        let elf_regex = Regex::new(r"([1-9][0-9]*)-([1-9][0-9]*)").unwrap();
-        let regex_captures = elf_regex.captures(text).unwrap();
+        let regex_captures = ELF_SECTION_REGEX.captures(text).unwrap();
 
         let begin = regex_captures.get(1).unwrap();
         let begin = begin.as_str().parse::<usize>().unwrap();
@@ -74,12 +70,38 @@ impl Section {
     /// (1) this interval begins after/at the same time as the the other starts
     /// (2) this interval ends before/at the same time as the other begins
     ///
-    /// TODO `Eq` and `PartialEq` probably have some part to play here
+    /// TODO `Eq` and `PartialEq` probably have some part to play here. The
+    /// problem clearly calls for set operations. Heck of a lot of fun math in
+    /// that space to use here. I wondered about bitwise operations in support.
     fn overlaps(&self, other: Section) -> bool {
         self.end >= other.begin && other.end >= self.begin
     }
 }
 
+// Compile regular expressions only once and at compile time. This has a marked
+// impact on performance (just like the `regex` crate documentation)!
+//
+// NB in a previous commit I commented on performance:
+//
+// > after refactoring to this code I noticed the solution takes nearly a
+// > second to execute!
+//
+// It's worth noting this change addressed that noticable change.
+lazy_static! {
+    // Regular expressions! A terror and wonder. Ok, my comments for each
+    // semantically valuable component are provided line-by-line. Viel
+    // Glueck!
+    static ref ELF_SECTION_REGEX: Regex = Regex::new(
+        r"(?x)            # This enables multi-line mode with comments
+          ([1-9][0-9]*)   # A 1-leading digit (i.e. not 0-leading)
+          -               # The hyphen separates the start and end of interval
+          ([1-9][0-9]*)   # Another digit (same as two lines up)
+          ",
+    )
+    .unwrap();
+}
+
+/// Sample input with variants supplied to make debugging easier
 const TEST_INPUT: &str = r"2-4,6-8
 2-3,4-5
 5-7,7-9
@@ -87,6 +109,8 @@ const TEST_INPUT: &str = r"2-4,6-8
 6-6,4-6
 2-6,4-8";
 
+/// My challenge input. Hopefully there's no harm in sharing this? Not sure why
+/// there would be.
 const REAL_INPUT: &str = r"4-90,1-4
 80-94,80-81
 1-97,96-99
