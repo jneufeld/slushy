@@ -1,52 +1,83 @@
 use regex::Regex;
 
+/// Solves part two of day 4's problem: https://adventofcode.com/2022/day/4
+/// 
+/// TODO after refactoring to this code I noticed the solution takes nearly a
+/// second to execute!
 pub fn solve() {
-    let mut count = 0;
+    let mut overlapping_sections = 0;
 
-    let elf_regex = Regex::new(r"([1-9][0-9]*)-([1-9][0-9]*),([1-9][0-9]*)-([1-9][0-9]*)").unwrap();
+    // The input files for these problems are well-formatted. We can safely
+    // assume newlines are placed appropriately and each line contains what the
+    // problem specifies. Splitting on newlines and using regular expressions is
+    // deceptively difficult in the real world (cf. parsers and grammars), but
+    // as a coding problem we can make blissful assumptions.
+    for elf_pair in REAL_INPUT.split('\n') {
+        let mut section_splitter = elf_pair.split(',');
 
-    for line in REAL_INPUT.split('\n') {
-        let captures = elf_regex.captures(line).unwrap();
+        // I'm undecided how wise is the pattern below, re-declaring a name. For
+        // readability, I like it. A short block of code represents an idea that
+        // continues across each operation -- something semantics-preserving.
+        // Here, that idea is the first section an elf covers. That starts as a
+        // type with some properties and transforms into another type with
+        // semantically-equivalent properties. Rust makes this easy to do, but
+        // I'm always cautious adopting unknown idioms. Just because it's easy
+        // doesn't mean it's a good idea.
+        //
+        // If you have strong feelings on this topic or have written enough Rust
+        // that you see what I'm overlooking, please reach out =)
+        let first_section = section_splitter.next().unwrap();
+        let first_section = Section::parse(first_section);
 
-        let first_start = captures.get(1).unwrap();
-        let first_start = first_start.as_str().parse::<usize>().unwrap();
+        let second_section = section_splitter.next().unwrap();
+        let second_section = Section::parse(second_section);
 
-        let first_end = captures.get(2).unwrap();
-        let first_end = first_end.as_str().parse::<usize>().unwrap();
-
-        let first = Elf {
-            start: first_start,
-            end: first_end,
-        };
-
-        let second_start = captures.get(3).unwrap();
-        let second_start = second_start.as_str().parse::<usize>().unwrap();
-
-        let second_end = captures.get(4).unwrap();
-        let second_end = second_end.as_str().parse::<usize>().unwrap();
-
-        let second = Elf {
-            start: second_start,
-            end: second_end,
-        };
-
-        if overlaps(first, second) {
-            println!("{:?} overlaps {:?}", first, second);
-            count += 1;
+        if first_section.overlaps(second_section) {
+            overlapping_sections += 1;
         }
     }
 
-    println!("{}", count);
+    println!("{}", overlapping_sections);
 }
 
+/// A section is an interval over the non-negative integers: [0, x]. Here, `x`
+/// is currently represented by `usize` (so the maximum is machine-independent).
+/// Operations on this interval are defined more clearly in their respective
+/// documentation (i.e. no need get to mathy).
 #[derive(Debug, Copy, Clone)]
-struct Elf {
-    start: usize,
+struct Section {
+    begin: usize,
     end: usize,
 }
 
-fn overlaps(first: Elf, second: Elf) -> bool {
-    first.end >= second.start && second.end >= first.start
+impl Section {
+    /// Create a section from the given text. Expect it in the form `X-Y` where
+    /// both `X` and `Y` are base-10.
+    ///
+    /// This function will `panic` if parsing fails.
+    fn parse(text: &str) -> Section {
+        // If this were production then `unwrap()` should be (close to?) forbidden
+        let elf_regex = Regex::new(r"([1-9][0-9]*)-([1-9][0-9]*)").unwrap();
+        let regex_captures = elf_regex.captures(text).unwrap();
+
+        let begin = regex_captures.get(1).unwrap();
+        let begin = begin.as_str().parse::<usize>().unwrap();
+
+        let end = regex_captures.get(2).unwrap();
+        let end = end.as_str().parse::<usize>().unwrap();
+
+        Section { begin, end }
+    }
+
+    /// This interval overlaps with another if both the following are true:
+    ///
+    /// (1) this interval begins after/at the same time as the the other starts
+    /// (2) this interval ends before/at the same time as the other begins
+    ///
+    /// TODO `Eq` and `PartialEq` probably have some part to play here
+    fn overlaps(&self, other: Section) -> bool {
+        self.end >= other.begin && other.end >= self.begin
+    }
 }
 
 const TEST_INPUT: &str = r"2-4,6-8
