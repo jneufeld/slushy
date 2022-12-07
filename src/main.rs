@@ -4,6 +4,7 @@ mod day3;
 mod day4;
 mod day5;
 mod day6;
+mod day7;
 
 #[derive(Debug)]
 pub struct Solution {
@@ -17,7 +18,7 @@ impl Solution {
 }
 
 fn main() {
-    let result = day6::solve();
+    let result = day7::solve();
 
     match result {
         Some(solution) => println!("{}", solution.value),
