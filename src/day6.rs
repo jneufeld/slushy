@@ -1,12 +1,18 @@
 use std::collections::{HashSet, VecDeque};
 
+use crate::Solution;
+
 const MIN_UNIQUE_CHARS_REQUIRED: usize = 14;
 
-pub fn solve() {
+pub fn solve() -> Option<Solution> {
+    find_solution(REAL_INPUT)
+}
+
+fn find_solution(input: &str) -> Option<Solution> {
     let mut marker = VecDeque::new();
     let mut processed = 0;
 
-    for character in REAL_INPUT.chars() {
+    for character in input.chars() {
         processed += 1;
         marker.push_back(character);
 
@@ -19,8 +25,34 @@ pub fn solve() {
                 continue;
             }
 
-            println!("marker: {:?} (processed {})", marker, processed);
-            break;
+            let solution = Solution::new(processed);
+            return Some(solution);
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod test {
+    use crate::day6::find_solution;
+
+    #[test]
+    fn simple() {
+        let inputs = vec![
+            (r"mjqjpqmgbljsphdztnvjfqwrcgsmlb", 19),
+            (r"bvwbjplbgvbhsrlpgdmjqwftvncz", 23),
+            (r"nppdvjthqldpwncqszvftbrmjlhg", 23),
+            (r"nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg", 29),
+            (r"zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw", 26),
+        ];
+
+        for (input, expected) in inputs {
+            let solution = find_solution(input);
+            let solution = solution.unwrap();
+            let solution = solution.value;
+
+            assert_eq!(solution, expected);
         }
     }
 }
