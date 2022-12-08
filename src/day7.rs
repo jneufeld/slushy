@@ -4,129 +4,206 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 pub fn solve() -> Option<Solution> {
-    find_solution(REAL_INPUT)
+    match find_solution(TEST_INPUT) {
+        Ok(solution) => Some(solution),
+        Err(why) => {
+            eprintln!("ERROR: {:?}", why);
+            None
+        }
+    }
 }
 
-#[derive(Debug)]
-struct Entry {
-    name: String,
+#[derive(Debug, Clone)]
+struct FileSystemEntry {
     kind: Kind,
-    size: Option<usize>,
-    level: usize,
+    name: String,
+    size: usize,
+    dirs: Vec<FileSystemEntry>,
+    files: Vec<FileSystemEntry>,
 }
 
-impl Entry {
-    fn directory(name: String, level: usize) -> Entry {
-        Entry {
-            name: name,
-            kind: Kind::Dir,
-            size: None,
-            level: level,
-        }
-    }
+impl FileSystemEntry {
+    fn new(kind: Kind, name: String, size: usize) -> FileSystemEntry {
+        let dirs = Vec::new();
+        let files = Vec::new();
 
-    fn file(name: String, level: usize) -> Entry {
-        Entry {
-            name: name,
-            kind: Kind::Dir,
-            size: None,
-            level: level,
+        FileSystemEntry {
+            kind,
+            name,
+            size,
+            dirs,
+            files,
         }
     }
 }
 
-#[derive(Debug)]
+impl Default for FileSystemEntry {
+    fn default() -> Self {
+        FileSystemEntry::new(Kind::Dir, String::from("DEFAULT"), 0)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 enum Kind {
     Dir,
     File,
 }
 
-enum State {
-    Start,
-    Name,
-    Type,
-    Size,
-    Accept,
+fn find_solution(input: &str) -> anyhow::Result<Solution> {
+    let root = parse_directory(input);
+    let solution = Solution::new(root.size);
+
+    Ok(solution)
 }
 
-lazy_static! {
-    static ref DIR_REGEX: Regex = Regex::new(
-        r"(:x)
-        -\s         # marker
-        (\S+)\s     # name
-        \(dir\)     # dir
-    "
-    )
-    .unwrap();
-    static ref FILE_REGEX: Regex = Regex::new(
-        r"(:x)
-        -\s                     # marker
-        (\S+)\s                 # name
-        \(file, size=(\d+)\)    # file size
-    "
-    )
-    .unwrap();
-}
+fn parse_directory(input: &str) -> FileSystemEntry {
+    // The problem now is splitting at the correct point: the first line
+    // contains the current directory's name so must be included. Parsing isn't
+    // complete for an arbitrary number of lines. It ends with a similar marker
+    // as the first: `$ cd`.
+    //
+    // In other words, I want to split at the SECOND instance of `$ cd`.
 
-fn find_solution(input: &str) -> Option<Solution> {
-    for line in input.split('\n') {
-        let directory_captures = DIR_REGEX.captures(line).unwrap();
+    // Split the input at the next `cd` command, i.e. where another directory
+    // will be parsed.
+    let index = find_split_index(input);
+    let (needed, remaining) = input.split_at(index);
 
-        let name = directory_captures.get(1).unwrap();
-        let name = String::from(name.as_str());
-        let level = indent_level(line);
+    println!("needed:\n'{}'\nremaining:\n'{}'\n", needed, remaining);
 
-        let entry = Entry::directory(name, level);
+    // Parse the file contents of this directory (i.e. one-level of depth and
+    // only files.
+    let mut current_directory = parse_files(needed);
 
-        println!("entry: {:?}", entry);
-    }
-
-    None
-}
-
-fn indent_level(line: &str) -> usize {
-    let mut spaces = 0;
-
-    for character in line.chars() {
-        if character != ' ' {
+    loop {
+        // Break when sub-directory parsing is complete.
+        if remaining.is_empty() || remaining.starts_with("$ cd ..") {
             break;
         }
 
-        spaces += 1;
+        // Recursively parse sub-directories.
+        let sub_directory = parse_directory(remaining);
+        current_directory.dirs.push(sub_directory);
     }
 
-    spaces / 2
+    // Update size of files and sub-directories.
+    for file in &current_directory.files {
+        current_directory.size += file.size;
+    }
+
+    for dir in &current_directory.dirs {
+        current_directory.size += dir.size;
+    }
+
+    current_directory
 }
 
-#[cfg(test)]
-mod test {
-    use crate::day7::find_solution;
+/// Starting at `$ cd <name>` find the index of the next `$ cd` pattern
+fn find_split_index(input: &str) -> usize {
+    let mut index = 0;
 
-    #[test]
-    fn simple() {
-        let inputs = vec![(r"", 0), (r"", 0)];
+    for i in 0..input.len() {
+        let c = input[i];
+    }
 
-        for (input, expected) in inputs {
-            let solution = find_solution(input);
-            let solution = solution.unwrap();
-            let solution = solution.value;
+    index
+}
 
-            assert_eq!(solution, expected);
+fn parse_files(input: &str) -> FileSystemEntry {
+    let mut lines = input.split('\n');
+
+    let name_line = lines.next().unwrap();
+    let name = parse_dir_name(name_line);
+
+    let mut directory = FileSystemEntry::new(Kind::Dir, name, 0);
+
+    let _ignore_ls_command = lines.next();
+
+    for line in lines {
+        if line.starts_with("$ cd") {
+            break;
         }
+
+        if line.starts_with("dir") {
+            continue;
+        }
+
+        let file = parse_file(line);
+
+        directory.files.push(file);
+    }
+
+    directory
+}
+
+lazy_static! {
+    static ref DIR_NAME_REGEX: Regex = Regex::new(r"cd (.+)$").unwrap();
+    static ref FILE_REGEX: Regex = Regex::new(r"(\d+) (.+)$").unwrap();
+}
+
+/// E.g. `$ cd /` or `$ cd e`
+fn parse_dir_name(line: &str) -> String {
+    let captures = DIR_NAME_REGEX.captures(line);
+
+    match captures {
+        Some(capture) => {
+            let name = capture.get(1).unwrap();
+            let name = name.as_str();
+
+            let result = String::from(name);
+
+            println!("parsed name: '{}'\nfrom: '{}'\n", result, line);
+
+            result
+        }
+        None => panic!("unable to find name from '{}'", line),
     }
 }
 
-const REAL_INPUT: &str = r"- / (dir)
-  - a (dir)
-    - e (dir)
-      - i (file, size=584)
-    - f (file, size=29116)
-    - g (file, size=2557)
-    - h.lst (file, size=62596)
-  - b.txt (file, size=14848514)
-  - c.dat (file, size=8504156)
-  - d (dir)
-    - j (file, size=4060174)
-    - d.log (file, size=8033020)
-    - d.ext (file, size=5626152)
-    - k (file, size=7214296)";
+/// E.g. `14848514 b.txt` or `4060174 j`
+fn parse_file(line: &str) -> FileSystemEntry {
+    let captures = FILE_REGEX.captures(line);
+
+    match captures {
+        Some(capture) => {
+            let size = capture.get(1).unwrap();
+            let size = size.as_str().parse::<usize>().unwrap();
+
+            let name = capture.get(2).unwrap();
+            let name = String::from(name.as_str());
+
+            let result = FileSystemEntry::new(Kind::File, name, size);
+
+            println!("parsed file: {:?}\nfrom: {}\n", result, line);
+
+            result
+        }
+        None => panic!("unable to find size and name from {}", line),
+    }
+}
+
+const TEST_INPUT: &str = r"$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k";
+
+const REAL_INPUT: &str = r"";
