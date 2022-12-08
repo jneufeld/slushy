@@ -18,10 +18,5 @@ impl Solution {
 }
 
 fn main() {
-    let result = day7::solve();
-
-    match result {
-        Some(solution) => println!("{}", solution.value),
-        None => println!("no solution found"),
-    }
+    day7::solve();
 }
