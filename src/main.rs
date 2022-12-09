@@ -5,6 +5,7 @@ mod day4;
 mod day5;
 mod day6;
 mod day7;
+mod day8;
 
 #[derive(Debug)]
 pub struct Solution {
@@ -18,5 +19,5 @@ impl Solution {
 }
 
 fn main() {
-    day7::solve();
+    day8::solve();
 }
