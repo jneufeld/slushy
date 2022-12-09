@@ -1,31 +1,22 @@
-use std::collections::HashSet;
-
 pub fn solve() {
-    let input = REAL_INPUT;
+    // 2446 too high, 664 too low
+    //let input = REAL_INPUT;
+
+    // 13? is correct
+    //let input = TEST_INPUT1;
+
+    // 36 is correct
+    let input = TEST_INPUT2;
+    let knot_count = 2;
+
     let moves = parse_moves(input);
+    let mut rope = Rope::new(knot_count);
 
-    let mut head = Position::start();
-    let mut tail = Position::start();
-
-    let mut tail_positions = HashSet::new();
-
-    for movement in moves.iter() {
-        let steps = movement.steps;
-
-        for _ in 0..steps {
-            match movement.direction {
-                Direction::Up => head.y += 1,
-                Direction::Down => head.y -= 1,
-                Direction::Right => head.x += 1,
-                Direction::Left => head.x -= 1,
-            }
-
-            tail.follow(&head);
-            tail_positions.insert(tail);
-        }
+    for movement in moves {
+        rope.advance(&movement);
     }
 
-    println!("{}", tail_positions.len());
+    println!("rope: {:?}", rope);
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -89,6 +80,40 @@ fn parse_moves(input: &str) -> Vec<Move> {
     moves
 }
 
+#[derive(Debug)]
+struct Rope {
+    knots: Vec<Position>,
+}
+
+impl Rope {
+    fn new(knot_count: usize) -> Self {
+        let mut knots = Vec::new();
+
+        for _ in 0..knot_count {
+            knots.push(Position::start());
+        }
+
+        let rope = Rope { knots };
+
+        println!("made rope with size {}:\n{:?}\n", knot_count, rope);
+
+        rope
+    }
+
+    fn advance(&mut self, movement: &Move) {
+        let mut head = self.knots.first().unwrap().to_owned();
+
+        for _ in 0..movement.steps {
+            match movement.direction {
+                Direction::Up => head.y += 1,
+                Direction::Down => head.y -= 1,
+                Direction::Right => head.x += 1,
+                Direction::Left => head.x -= 1,
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Position {
     x: isize,
@@ -100,39 +125,50 @@ impl Position {
         Position { x: 0, y: 0 }
     }
 
-    fn follow(&mut self, other: &Position) {
+    fn follow(&mut self, other: &Position) -> Vec<Position> {
+        let mut positions_occupied = Vec::new();
+
+        positions_occupied.push(self.to_owned());
+
         let x_steps = self.x.abs_diff(other.x);
         let y_steps = self.y.abs_diff(other.y);
 
+        // TODO do until?
+
+        // Move diagonally to catch up
         if y_steps > 1 && x_steps == 1 || y_steps == 1 && x_steps > 1 {
+            // Move in the y-plane
             if other.y > self.y {
                 self.y += 1;
             } else {
                 self.y -= 1;
             }
 
+            // Move in the x-plane
             if other.x > self.x {
                 self.x += 1;
             } else {
                 self.x -= 1;
             }
-        } else if y_steps > 1 {
+        } else if y_steps > 1 && self.x == other.x {
             if other.y > self.y {
                 self.y += 1;
             } else {
                 self.y -= 1;
             }
-        } else if x_steps > 1 {
+        } else if x_steps > 1 && self.y == other.y {
             if other.x > self.x {
                 self.x += 1;
             } else {
                 self.x -= 1;
             }
         }
+
+        positions_occupied
     }
 }
 
-const TEST_INPUT: &str = r"R 4
+const TEST_INPUT1: &str = r"R 4
 U 4
 L 3
 D 1
@@ -140,6 +176,15 @@ R 4
 D 1
 L 5
 R 2";
+
+const TEST_INPUT2: &str = r"R 5
+U 8
+L 8
+D 3
+R 17
+D 10
+L 25
+U 20";
 
 const REAL_INPUT: &str = r"U 1
 L 1
