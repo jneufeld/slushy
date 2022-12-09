@@ -1,7 +1,12 @@
 use std::collections::HashSet;
 
 pub fn solve() {
-    let input = REAL_INPUT;
+    // Expect 13
+    let input = SAMPLE1;
+
+    // Expect 5907
+    //let input = CONTEST;
+
     let moves = parse_moves(input);
 
     let mut head = Position::start();
@@ -20,8 +25,8 @@ pub fn solve() {
                 Direction::Left => head.x -= 1,
             }
 
-            tail.follow(&head);
-            tail_positions.insert(tail);
+            let positions_visited = tail.follow(&head);
+            tail_positions.extend(positions_visited);
         }
     }
 
@@ -100,39 +105,59 @@ impl Position {
         Position { x: 0, y: 0 }
     }
 
-    fn follow(&mut self, other: &Position) {
-        let x_steps = self.x.abs_diff(other.x);
-        let y_steps = self.y.abs_diff(other.y);
+    fn follow(&mut self, other: &Position) -> Vec<Position> {
+        let mut positions = Vec::new();
+        positions.push(self.clone());
 
-        if y_steps > 1 && x_steps == 1 || y_steps == 1 && x_steps > 1 {
-            if other.y > self.y {
-                self.y += 1;
-            } else {
-                self.y -= 1;
+        while !self.is_adjacent(other) {
+            // Distance from this to other in x and y coordinates
+            let x_dist = self.x.abs_diff(other.x);
+            let y_dist = self.y.abs_diff(other.y);
+
+            // Move diagonally
+            if y_dist > 1 && x_dist == 1 || y_dist == 1 && x_dist > 1 {
+                if other.y > self.y {
+                    self.y += 1;
+                } else {
+                    self.y -= 1;
+                }
+
+                if other.x > self.x {
+                    self.x += 1;
+                } else {
+                    self.x -= 1;
+                }
+            } else if y_dist > 1 {
+                // Move only up or down
+                if other.y > self.y {
+                    self.y += 1;
+                } else {
+                    self.y -= 1;
+                }
+            } else if x_dist > 1 {
+                // Move only right or left
+                if other.x > self.x {
+                    self.x += 1;
+                } else {
+                    self.x -= 1;
+                }
             }
 
-            if other.x > self.x {
-                self.x += 1;
-            } else {
-                self.x -= 1;
-            }
-        } else if y_steps > 1 {
-            if other.y > self.y {
-                self.y += 1;
-            } else {
-                self.y -= 1;
-            }
-        } else if x_steps > 1 {
-            if other.x > self.x {
-                self.x += 1;
-            } else {
-                self.x -= 1;
-            }
+            positions.push(self.clone());
         }
+
+        positions
+    }
+
+    fn is_adjacent(&self, other: &Position) -> bool {
+        let x_dist = self.x.abs_diff(other.x);
+        let y_dist = self.y.abs_diff(other.y);
+
+        x_dist <= 1 && y_dist <= 1
     }
 }
 
-const TEST_INPUT: &str = r"R 4
+const SAMPLE1: &str = r"R 4
 U 4
 L 3
 D 1
@@ -141,7 +166,9 @@ D 1
 L 5
 R 2";
 
-const REAL_INPUT: &str = r"U 1
+const SAMPLE2: &str = r"";
+
+const CONTEST: &str = r"U 1
 L 1
 R 2
 L 1
