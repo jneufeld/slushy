@@ -1,18 +1,37 @@
 use std::collections::HashSet;
 
 pub fn solve() {
-    // Expect 13
-    let input = SAMPLE1;
+    let input = TEST;
 
-    // Expect 5907
+    // Expect 13
+    //let input = SAMPLE1;
+
+    // Expect 36
+    //let input = SAMPLE2;
+
+    // 2444 wrong
+    // 2446 too high, 664 too low
     //let input = CONTEST;
 
     let moves = parse_moves(input);
 
     let mut head = Position::start();
+
+    // TODO start yikes
+    let mut k1 = Position::start();
+    let mut k2 = Position::start();
+    let mut k3 = Position::start();
+    let mut k4 = Position::start();
+    let mut k5 = Position::start();
+    let mut k6 = Position::start();
+    let mut k7 = Position::start();
+    let mut k8 = Position::start();
+    // TODO end yikes
+
     let mut tail = Position::start();
 
     let mut tail_positions = HashSet::new();
+    tail_positions.insert(tail);
 
     for movement in moves.iter() {
         let steps = movement.steps;
@@ -25,9 +44,32 @@ pub fn solve() {
                 Direction::Left => head.x -= 1,
             }
 
-            let positions_visited = tail.follow(&head);
-            tail_positions.extend(positions_visited);
+            let _ = k1.follow(&head);
+            let _ = k2.follow(&k1);
+            let _ = k3.follow(&k2);
+            let _ = k4.follow(&k3);
+            let _ = k5.follow(&k4);
+            let _ = k6.follow(&k5);
+            let _ = k7.follow(&k6);
+            let _ = k8.follow(&k7);
+
+            let tail_visited = tail.follow(&k8);
+
+            tail_positions.extend(tail_visited);
         }
+
+        println!("after {:?}:\n", movement);
+        println!("head: {:?}", head);
+        println!("k1: {:?}", k1);
+        println!("k2: {:?}", k2);
+        println!("k3: {:?}", k3);
+        println!("k4: {:?}", k4);
+        println!("k5: {:?}", k5);
+        println!("k6: {:?}", k6);
+        println!("k7: {:?}", k7);
+        println!("k8: {:?}", k8);
+        println!("tail: {:?}", tail);
+        println!();
     }
 
     println!("{}", tail_positions.len());
@@ -36,11 +78,11 @@ pub fn solve() {
 #[derive(Debug, Clone, Copy)]
 struct Move {
     direction: Direction,
-    steps: usize,
+    steps: isize,
 }
 
 impl Move {
-    fn new(direction: Direction, steps: usize) -> Self {
+    fn new(direction: Direction, steps: isize) -> Self {
         Move { direction, steps }
     }
 }
@@ -86,7 +128,7 @@ fn parse_moves(input: &str) -> Vec<Move> {
             steps.push(digit);
         }
 
-        let steps = steps.parse::<usize>().unwrap();
+        let steps = steps.parse::<isize>().unwrap();
 
         moves.push(Move::new(direction, steps));
     }
@@ -110,12 +152,16 @@ impl Position {
         positions.push(self.clone());
 
         while !self.is_adjacent(other) {
+            println!("{:?} not adjacent to {:?}", self, other);
+
             // Distance from this to other in x and y coordinates
             let x_dist = self.x.abs_diff(other.x);
             let y_dist = self.y.abs_diff(other.y);
 
             // Move diagonally
             if y_dist > 1 && x_dist == 1 || y_dist == 1 && x_dist > 1 {
+                println!("{:?} moving diagonally towards {:?}", self, other);
+
                 if other.y > self.y {
                     self.y += 1;
                 } else {
@@ -130,15 +176,19 @@ impl Position {
             } else if y_dist > 1 {
                 // Move only up or down
                 if other.y > self.y {
+                    println!("{:?} moving up towards {:?}", self, other);
                     self.y += 1;
                 } else {
+                    println!("{:?} moving down towards {:?}", self, other);
                     self.y -= 1;
                 }
             } else if x_dist > 1 {
                 // Move only right or left
                 if other.x > self.x {
+                    println!("{:?} moving right towards {:?}", self, other);
                     self.x += 1;
                 } else {
+                    println!("{:?} moving left towards {:?}", self, other);
                     self.x -= 1;
                 }
             }
@@ -157,6 +207,9 @@ impl Position {
     }
 }
 
+const TEST: &str = r"R 4
+U 4";
+
 const SAMPLE1: &str = r"R 4
 U 4
 L 3
@@ -166,7 +219,14 @@ D 1
 L 5
 R 2";
 
-const SAMPLE2: &str = r"";
+const SAMPLE2: &str = r"R 5
+U 8
+L 8
+D 3
+R 17
+D 10
+L 25
+U 20";
 
 const CONTEST: &str = r"U 1
 L 1
