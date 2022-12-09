@@ -7,19 +7,20 @@ pub fn solve() {
     let num_cols = input.split('\n').count();
     let limits = Position::new(Column(num_cols - 1), Row(num_rows - 1));
 
-    let mut total_visible = 0;
+    let mut highest_scenic_score = 0;
 
     for row_idx in 0..num_rows {
         for col_idx in 0..num_cols {
             let position = Position::new(Column(col_idx), Row(row_idx));
+            let scenic_score = get_scenic_score(position, limits, &heights);
 
-            if is_visible(position, limits, &heights) {
-                total_visible += 1;
+            if scenic_score > highest_scenic_score {
+                highest_scenic_score = scenic_score;
             }
         }
     }
 
-    println!("total visible: {}", total_visible);
+    println!("best scenic score: {}", highest_scenic_score);
 }
 
 struct Heights {
@@ -145,23 +146,21 @@ impl Position {
     }
 }
 
-fn is_visible(position: Position, limits: Position, heights: &Heights) -> bool {
-    // Visible at the edges of known space
+fn get_scenic_score(position: Position, limits: Position, heights: &Heights) -> usize {
     if position.is_on_inside_edge() || position.is_on_outside_edge(&limits) {
-        return true;
+        return 1;
     }
 
     let tree_height = heights
         .get(position)
         .unwrap_or_else(|| panic!("No height at {:?}", position));
 
-    // Taller than all trees to the edges of known space
-    let tallest_up = is_tallest(Direction::Up, tree_height, &position, &limits, &heights);
-    let tallest_down = is_tallest(Direction::Down, tree_height, &position, &limits, &heights);
-    let tallest_right = is_tallest(Direction::Right, tree_height, &position, &limits, &heights);
-    let tallest_left = is_tallest(Direction::Left, tree_height, &position, &limits, &heights);
+    let visible_up = count_visible(Direction::Up, tree_height, &position, &limits, &heights);
+    let visible_down = count_visible(Direction::Down, tree_height, &position, &limits, &heights);
+    let visible_right = count_visible(Direction::Right, tree_height, &position, &limits, &heights);
+    let visible_left = count_visible(Direction::Left, tree_height, &position, &limits, &heights);
 
-    return tallest_up || tallest_down || tallest_right || tallest_left;
+    return visible_up * visible_down * visible_right * visible_left;
 }
 
 enum Direction {
@@ -171,15 +170,15 @@ enum Direction {
     Left,
 }
 
-fn is_tallest(
+fn count_visible(
     direction: Direction,
     tree_height: u8,
     position: &Position,
     limits: &Position,
     heights: &Heights,
-) -> bool {
+) -> usize {
     if position.is_on_inside_edge() || position.is_on_outside_edge(&limits) {
-        return true;
+        return 0;
     }
 
     let next_position = match direction {
@@ -190,23 +189,15 @@ fn is_tallest(
     };
 
     if next_position.within(&limits) {
-        if let Some(up_height) = heights.get(next_position) {
-            if tree_height > up_height
-                && is_tallest(direction, tree_height, &next_position, limits, heights)
-            {
-                return true;
+        if let Some(next_height) = heights.get(next_position) {
+            if tree_height > next_height {
+                return 1 + count_visible(direction, tree_height, &next_position, limits, heights);
             }
         }
     }
 
-    false
+    1
 }
-
-const TEST_INPUT: &str = r"30373
-25512
-65332
-33549
-35390";
 
 const REAL_INPUT: &str = r"220102001303332210111144403232401113333122342344231242454143210203320302212443030013122003001101100
 002012111323310331302003042221132010432132445255133124455255223004414440440003301012203200022100210
