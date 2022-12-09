@@ -155,12 +155,12 @@ fn get_scenic_score(position: Position, limits: Position, heights: &Heights) -> 
         .get(position)
         .unwrap_or_else(|| panic!("No height at {:?}", position));
 
-    let visible_up = count_visible(Direction::Up, tree_height, &position, &limits, &heights);
-    let visible_down = count_visible(Direction::Down, tree_height, &position, &limits, &heights);
-    let visible_right = count_visible(Direction::Right, tree_height, &position, &limits, &heights);
-    let visible_left = count_visible(Direction::Left, tree_height, &position, &limits, &heights);
+    let visible_up = count_visible(Direction::Up, tree_height, position, limits, heights);
+    let visible_down = count_visible(Direction::Down, tree_height, position, limits, heights);
+    let visible_right = count_visible(Direction::Right, tree_height, position, limits, heights);
+    let visible_left = count_visible(Direction::Left, tree_height, position, limits, heights);
 
-    return visible_up * visible_down * visible_right * visible_left;
+    visible_up * visible_down * visible_right * visible_left
 }
 
 enum Direction {
@@ -173,8 +173,8 @@ enum Direction {
 fn count_visible(
     direction: Direction,
     tree_height: u8,
-    position: &Position,
-    limits: &Position,
+    position: Position,
+    limits: Position,
     heights: &Heights,
 ) -> usize {
     if position.is_on_inside_edge() || position.is_on_outside_edge(&limits) {
@@ -191,7 +191,7 @@ fn count_visible(
     if next_position.within(&limits) {
         if let Some(next_height) = heights.get(next_position) {
             if tree_height > next_height {
-                return 1 + count_visible(direction, tree_height, &next_position, limits, heights);
+                return 1 + count_visible(direction, tree_height, next_position, limits, heights);
             }
         }
     }
