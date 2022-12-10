@@ -38,6 +38,7 @@ pub fn solve() {
     println!("total signal strength: {}", signal_strength)
 }
 
+/// The problem's input is well formatted. Every line contains one instruction.
 fn parse_instructions(input: &str) -> VecDeque<Instruction> {
     let mut instructions = VecDeque::new();
 
@@ -48,6 +49,11 @@ fn parse_instructions(input: &str) -> VecDeque<Instruction> {
     instructions
 }
 
+/// This machine has a myriad of options: add with one operand or do nothing.
+///
+/// NB this is implicitly coupled to the machine's implementation of scheduling.
+/// A `Noop` takes a single CPU cycle to complete, but `Addx` takes two. Neither
+/// is captured here.
 #[derive(Debug, Clone, Copy)]
 enum Instruction {
     Noop,
@@ -74,14 +80,17 @@ impl From<&str> for Instruction {
     }
 }
 
+/// A virtual machine executes a sequence of `Instruction`s (i.e. a program). It
+/// maintains the value of a single register. Since some instructions take
+/// longer to execute, it separates the program instructions from those
+/// in-flight.
 #[derive(Debug)]
 struct VirtualMachine {
     /// The program is a sequence of instructions that will be executed
     /// sequentially.
     program: VecDeque<Instruction>,
 
-    /// In-flight instructions are currently executing. Like in real computers,
-    /// this one has instructions that vary in how long they take to execute.
+    /// An in-flight instruction is currently executing
     in_flight: Option<Instruction>,
 
     /// The single register used in this VM. It is initially `1`.
@@ -104,10 +113,15 @@ impl VirtualMachine {
         }
     }
 
+    /// Returns `false` when the program has finished executing (i.e. all
+    /// instructions) have completed.
     fn is_executing(&self) -> bool {
         !self.program.is_empty() || !self.in_flight.is_none()
     }
 
+    /// Cycles the CPU by executing the next instruction. This will increase
+    /// the cycle counter and possibly the register (depending on the
+    /// instruction).
     fn cycle(&mut self) {
         self.cycles += 1;
 
@@ -118,11 +132,15 @@ impl VirtualMachine {
         }
     }
 
-    /// An instruction is currently executing. In this architecture, that
-    /// means an `addx` instruction was scheduled on the previous cycle.
-    /// Since `addx` takes two cycles it can be completed on this cycle.
+    /// An instruction is currently executing. In this architecture, that means
+    /// an `addx` instruction was scheduled on the previous cycle. Since `addx`
+    /// takes two cycles it can be completed on this cycle.
     ///
-    /// Obviously this hard-coding is flimsy, but the pattern can generalize.
+    /// If a `Noop` was scheduled, ignore it. The VM sets a `Noop` instruction
+    /// as in-flight when starting so `Addx` doesn't execute too fast.
+    ///
+    /// This pattern would require refactoring if more instructions with varying
+    /// execution lengths are added.
     fn execute(&mut self) {
         let instruction = self.in_flight.unwrap();
 
@@ -134,21 +152,24 @@ impl VirtualMachine {
         self.in_flight = None;
     }
 
+    /// No instructions are currently executing. Pull the next one from the
+    /// program and execute or schedule it depending on the type.
     fn schedule(&mut self) {
-        // No instructions are currently executing. Pull the next from the
-        // program and execute or schedule it.
         let instruction = self.program.pop_front();
         let instruction = instruction.unwrap();
 
-        // Noop instructions take a single cycle to execute and have no
-        // side effects. Adding takes two cycles, so the instruction is
-        // scheduled to complete on the next cycle.
+        // `Noop` instructions take a single cycle to execute and have no side
+        // effects. Adding takes two cycles, so the instruction is scheduled to
+        // complete on the next cycle.
         match instruction {
             Instruction::Noop => (),
             Instruction::Addx(_) => self.in_flight = Some(instruction),
         }
     }
 
+    /// Return the value currently stored in the register. When instructions
+    /// that modify this value (e.g. `Addx`) execute, the value is only updated
+    /// after the instruction completes, at the end of the CPU cycle.
     fn read_register(&self) -> isize {
         self.register
     }
