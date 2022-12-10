@@ -1,19 +1,23 @@
 use std::collections::{HashMap, VecDeque};
 
+const TOTAL: usize = 70_000_000;
+const REQUIRED: usize = 30_000_000;
+
 pub fn solve() {
     let sizes = get_sizes(CONTEST);
+    let mut sizes: Vec<usize> = sizes.values().cloned().into_iter().collect();
+    sizes.sort();
 
-    let mut total = 0;
+    let used = sizes.iter().max().unwrap();
+    let unused = TOTAL - used;
+    let must_delete = REQUIRED - unused;
 
-    for (_, size) in sizes.into_iter() {
-        if size > 100_000 {
-            continue;
+    for size in sizes.into_iter() {
+        if size > must_delete {
+            println!("{}", size);
+            break;
         }
-
-        total += size;
     }
-
-    println!("{}", total);
 }
 
 fn get_sizes(input: &str) -> HashMap<AbsolutePath, usize> {
@@ -75,10 +79,25 @@ fn get_sizes(input: &str) -> HashMap<AbsolutePath, usize> {
             digits.push(digit);
         }
 
-        let size = digits.parse::<usize>().unwrap();
-        let pwd = AbsolutePath::from(&path_stack);
+        let file_size = digits.parse::<usize>().unwrap();
+        let current_path = path_stack.absolute_path();
 
-        *sizes.get_mut(&pwd).unwrap() += size;
+        *sizes.get_mut(&current_path).unwrap() += file_size;
+    }
+
+    while !path_stack.stack.is_empty() {
+        // Save the previous directory's size
+        let previous_path = path_stack.absolute_path();
+        let previous_size = sizes.get(&previous_path).unwrap().clone();
+
+        // Pop back a path
+        path_stack.pop();
+
+        // Add the previous directory's size to the current directory to
+        // ensure sub-directories influence size
+        let current_path = path_stack.absolute_path();
+
+        *sizes.get_mut(&current_path).unwrap_or(&mut 0) += previous_size;
     }
 
     sizes
