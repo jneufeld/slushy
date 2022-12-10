@@ -1,9 +1,126 @@
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    fmt::{Display, Formatter},
+};
 
 pub fn solve() {
-    let input = PART_1;
+    solve_part_two(SAMPLE);
+}
 
+fn solve_part_two(input: &str) {
     // A program is a sequence of instructions for the machine to execute
+    let program = parse_instructions(input);
+    let machine = VirtualMachine::new(program);
+
+    let mut screen = Screen::new(machine);
+    screen.refresh();
+
+    println!("{}", screen);
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Pixel {
+    Lit,
+    Dark,
+}
+
+impl Into<char> for Pixel {
+    fn into(self) -> char {
+        match self {
+            Pixel::Lit => '#',
+            Pixel::Dark => '.',
+        }
+    }
+}
+
+/// Defined by the specification
+const SCREEN_WIDTH: usize = 40;
+
+/// Defined by the specification
+const SCREEN_HEIGHT: usize = 6;
+
+/// A screen is a visual output controlled by an underlying machine. In this
+/// case, the underlying machine executes a program which instructs the screen
+/// when and where to light pixels.
+struct Screen {
+    machine: VirtualMachine,
+    sprite_middle: isize,
+    pixels: [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT],
+}
+
+impl Screen {
+    fn new(machine: VirtualMachine) -> Self {
+        // Initially, every pixel is dark
+        let pixels = [Pixel::Dark; SCREEN_WIDTH * SCREEN_HEIGHT];
+
+        // A sprite is three pixels wide. Its middle is the easiest way to track
+        // its position. Initially, the middle is at index `1` so one pixel to
+        // the left (index `0`) and one to the right (index `2`) are also
+        // displayed.
+        let middle = 1;
+
+        Screen {
+            machine,
+            pixels,
+            sprite_middle: middle,
+        }
+    }
+
+    /// Refresh the screen so it is ready to be displayed. Underneath, this
+    /// cycles the VM to determine if a pixel should be lit or not.
+    fn refresh(&mut self) {
+        while self.machine.is_executing() {
+            self.light();
+            self.machine.cycle();
+            self.sprite_middle = self.machine.read_register();
+        }
+    }
+
+    /// Lights a pixel if the VM signals for it
+    fn light(&mut self) {
+        let middle = self.sprite_middle;
+        let register = self.machine.read_register();
+        let index = self.machine.get_ticks();
+
+        if index >= SCREEN_HEIGHT * SCREEN_WIDTH {
+            // TODO ?
+            return;
+        }
+
+        let should_light = register == middle || register - 1 == middle || register + 1 == middle;
+
+        if should_light {
+            self.pixels[index] = Pixel::Lit;
+        }
+
+        println!(
+            "cycle: {}, register: {}, sprite_middle: {}, should_light: {}",
+            index, register, middle, should_light
+        );
+    }
+}
+
+impl Display for Screen {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut column = 0;
+
+        for pixel in self.pixels {
+            if column == 40 {
+                writeln!(formatter).unwrap();
+                column = 0;
+            }
+
+            let pixel: char = pixel.into();
+            write!(formatter, "{}", pixel).unwrap();
+
+            column += 1;
+        }
+
+        writeln!(formatter)
+    }
+}
+
+fn solve_part_one(input: &str) {
     let program = parse_instructions(input);
     let mut machine = VirtualMachine::new(program);
 
@@ -24,7 +141,7 @@ pub fn solve() {
 
         // The cycle count and number in the register are used to calculate the
         // signal score
-        let cycle = machine.cycles as isize;
+        let cycle = machine.get_ticks() as isize;
         let number = machine.read_register();
 
         // Sampling time!
@@ -98,7 +215,7 @@ struct VirtualMachine {
 
     /// Stores how many cycles this VM has executed. It is initially `0` and
     /// increases by one every time the CPU cycles (i.e. `cycle()` is called).
-    cycles: usize,
+    ticks: usize,
 }
 
 impl VirtualMachine {
@@ -109,7 +226,7 @@ impl VirtualMachine {
             program,
             in_flight,
             register: 1, // Initially `1` by specification
-            cycles: 0,   // Initially `0` by specification
+            ticks: 0,    // Initially `0` by specification
         }
     }
 
@@ -123,7 +240,7 @@ impl VirtualMachine {
     /// the cycle counter and possibly the register (depending on the
     /// instruction).
     fn cycle(&mut self) {
-        self.cycles += 1;
+        self.ticks += 1;
 
         if self.in_flight.is_none() {
             self.schedule();
@@ -173,9 +290,14 @@ impl VirtualMachine {
     fn read_register(&self) -> isize {
         self.register
     }
+
+    /// Returns the number of cycles performed by the CPU
+    fn get_ticks(&self) -> usize {
+        self.ticks
+    }
 }
 
-const PART_1_SAMPLE_2: &str = r"addx 15
+const SAMPLE: &str = r"addx 15
 addx -11
 addx 6
 addx -3
@@ -322,7 +444,7 @@ noop
 noop
 noop";
 
-const PART_1: &str = r"noop
+const CONTEST: &str = r"noop
 noop
 addx 5
 noop
