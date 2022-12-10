@@ -1,60 +1,138 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 pub fn solve() {
-    let mut current_path: VecDeque<String> = VecDeque::new();
-    let mut current_size = 0;
+    let sizes = get_sizes(CONTEST);
 
-    let mut path_sizes: VecDeque<usize> = VecDeque::new();
+    let mut total = 0;
 
-    for line in INPUT.split('\n') {
-        if line.starts_with("dir") || line.starts_with("$ ls") {
+    for (_, size) in sizes.into_iter() {
+        if size > 100_000 {
             continue;
         }
 
-        // Total size of files in this directory
-        if !line.starts_with("$ cd ") {
-            let size = line.split_ascii_whitespace().next().unwrap();
-            let size = size.parse::<usize>().unwrap();
-
-            current_size += size;
-        }
-        // Directory parsing is finished
-        else {
-            let (_, name) = line.split_at(5);
-            let name = String::from(name);
-
-            // Parsing this path is done
-            if line.contains("..") {
-                // Add size to parent
-                let parent = path_sizes.pop_back().unwrap();
-                let parent = current_size + parent;
-                path_sizes.push_back(parent);
-
-                // Record size
-                path_sizes.push_back(current_size);
-
-                // Reset
-                current_size = 0;
-            }
-            // Push into new path
-            else {
-                current_path.push_back(name);
-                path_sizes.push_back(current_size);
-                current_size = 0;
-            }
-        }
+        total += size;
     }
 
-    println!("sizes: {:?}", path_sizes);
+    println!("{}", total);
+}
 
-    for item in path_sizes {
-        if item < 100_000 {
-            println!("item: {}", item);
+fn get_sizes(input: &str) -> HashMap<AbsolutePath, usize> {
+    let mut sizes: HashMap<AbsolutePath, usize> = HashMap::new();
+
+    // While looping through the problem input, keep track of which directory
+    // we are in
+    let mut path_stack = PathStack::new();
+
+    for line in input.split('\n') {
+        // Skip pointless `ls`
+        if line.starts_with("$ ls") {
+            continue;
         }
+
+        // Push deeper into the FS tree or pop back a level
+        if line.starts_with("$ cd") {
+            // The command is a constant length: `$ cd <PATH>`
+            let (_cd, path) = line.split_at(5);
+
+            // Pop back
+            if path.eq("..") {
+                // Save the previous directory's size
+                let previous_path = path_stack.absolute_path();
+                let previous_size = sizes.get(&previous_path).unwrap().clone();
+
+                // Pop back a path
+                path_stack.pop();
+
+                // Add the previous directory's size to the current directory to
+                // ensure sub-directories influence size
+                let current_path = path_stack.absolute_path();
+
+                *sizes.get_mut(&current_path).unwrap() += previous_size;
+            }
+            // Push deeper
+            else {
+                path_stack.push(path);
+
+                let current_path = path_stack.absolute_path();
+                sizes.insert(current_path, 0);
+            }
+
+            // This line contained the `cd` command and has been fully parsed.
+            // Continue to the next line so the directory contents can be
+            // parsed.
+            continue;
+        }
+
+        // Skip pointless `dir <NAME>`
+        if line.starts_with("dir") {
+            continue;
+        }
+
+        let mut characters = line.chars().peekable();
+        let mut digits = String::new();
+
+        while let Some(digit) = characters.next_if(|c| c.is_ascii_digit()) {
+            digits.push(digit);
+        }
+
+        let size = digits.parse::<usize>().unwrap();
+        let pwd = AbsolutePath::from(&path_stack);
+
+        *sizes.get_mut(&pwd).unwrap() += size;
+    }
+
+    sizes
+}
+
+/// Convenient data structure for maintaining absolute and relative paths while
+/// traversing a file system. Provides an interface to push or pop (i.e. `$ cd
+/// <PATH>` or `$ cd ..`, respectively) and get the current full path.
+#[derive(Debug)]
+struct PathStack {
+    stack: VecDeque<String>,
+}
+
+impl PathStack {
+    fn new() -> Self {
+        let stack = VecDeque::new();
+
+        PathStack { stack }
+    }
+
+    /// Push path onto the stack (i.e. `$ cd <PATH>`)
+    fn push(&mut self, path: &str) {
+        let entry = String::from(path);
+        self.stack.push_back(entry);
+    }
+
+    /// Pop and return a path from the stack (i.e. `$ cd ..`)
+    fn pop(&mut self) -> String {
+        self.stack.pop_back().unwrap()
+    }
+
+    /// Return the current stack of paths as a single absolute path
+    fn absolute_path(&self) -> AbsolutePath {
+        AbsolutePath::from(self)
     }
 }
 
-const INPUT: &str = r"$ cd /
+/// An absolute path is a concatenation of directories and sub-directories.
+/// This struct is a convenient and type-safe approach to identifying a full
+/// path.
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct AbsolutePath {
+    value: String,
+}
+
+impl From<&PathStack> for AbsolutePath {
+    fn from(path: &PathStack) -> Self {
+        let value = path.stack.iter().cloned().collect();
+
+        AbsolutePath { value }
+    }
+}
+
+const SAMPLE: &str = r"$ cd /
 $ ls
 dir a
 14848514 b.txt
