@@ -8,6 +8,9 @@ edition = "2021"
 # Justification: convenience
 anyhow = "1"
 
+# Justification: convenience
+indexmap = "1.9.2"
+
 # Justification: performance
 lazy_static = "1.4.0"
 

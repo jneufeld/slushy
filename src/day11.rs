@@ -1,13 +1,29 @@
 use core::panic;
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    fmt::{Display, Formatter},
+};
+
+use indexmap::IndexMap;
 
 pub fn solve() {
     let mut monkies = parse_monkies(SAMPLE);
+    let num_monkeys = monkies.len();
 
-    for monkey in monkies.iter_mut() {
-        while let Some((item, target)) = monkey.inspect() {
-            println!("throwing {:?} to {:?}", item, target);
+    for round in 1..21 {
+        for idx in 0..num_monkeys {
+            while let Some((item, target)) = monkies.get_mut(&idx).unwrap().inspect() {
+                monkies.entry(target.0).and_modify(|m| m.catch(item));
+            }
         }
+
+        println!("at end of round {}:", round);
+
+        for (number, monkey) in monkies.iter() {
+            println!("\tmonkey {}: {}", number, monkey);
+        }
+
+        println!();
     }
 }
 
@@ -20,9 +36,11 @@ enum State {
     TestFalse,
 }
 
-fn parse_monkies(input: &str) -> VecDeque<Monkey> {
+fn parse_monkies(input: &str) -> IndexMap<usize, Monkey> {
+    let mut monkies = IndexMap::new();
+
     let mut state = State::Monkey;
-    let mut monkies = VecDeque::new();
+    let mut monkey_number = 0;
     let mut current_monkey = Monkey::default();
 
     for line in input.split('\n') {
@@ -39,7 +57,7 @@ fn parse_monkies(input: &str) -> VecDeque<Monkey> {
                 state = State::Items;
             }
             State::Items => {
-                current_monkey.starting_items = Items::from(line);
+                current_monkey.items = Items::from(line);
                 state = State::Operation;
             }
             State::Operation => {
@@ -59,7 +77,9 @@ fn parse_monkies(input: &str) -> VecDeque<Monkey> {
 
                 // Must be final step of this state (this of this as an `Accept`
                 // state)
-                monkies.push_back(current_monkey.clone());
+                monkies.insert(monkey_number, current_monkey.clone());
+
+                monkey_number += 1;
                 state = State::Monkey;
             }
         }
@@ -70,26 +90,22 @@ fn parse_monkies(input: &str) -> VecDeque<Monkey> {
 
 #[derive(Debug, Default, Clone, Hash, PartialEq)]
 struct Monkey {
-    starting_items: Items,
+    items: Items,
     operation: Operation,
     test: Test,
 }
 
 impl Monkey {
     pub fn inspect(&mut self) -> Option<(WorryLevel, ThrowTo)> {
-        let worry_level = self.starting_items.items.pop_back()?;
-
-        println!("inspecting {:?}", worry_level);
-
+        let worry_level = self.items.items.pop_back()?;
         let worry_level = self.update_worry(worry_level);
-
         let throw_to = self.get_throw_target(&worry_level);
 
         Some((worry_level, throw_to))
     }
 
     pub fn catch(&mut self, item: WorryLevel) {
-        self.starting_items.items.push_back(item);
+        self.items.items.push_front(item);
     }
 
     fn update_worry(&self, worry_level: WorryLevel) -> WorryLevel {
@@ -127,6 +143,12 @@ impl Monkey {
         } else {
             self.test.when_false
         }
+    }
+}
+
+impl Display for Monkey {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "items: {:?}", self.items)
     }
 }
 
@@ -320,41 +342,3 @@ Monkey 3:
   Test: divisible by 17
     If true: throw to monkey 0
     If false: throw to monkey 1";
-
-#[cfg(test)]
-mod tests {
-    use crate::day11::{Items, Test, ThrowTo, WorryLevel};
-
-    use super::{parse_monkies, Operand, Operation, Operator, SAMPLE};
-
-    #[test]
-    fn sample_parses() {
-        let mut monkies = parse_monkies(SAMPLE);
-
-        let first = monkies.pop_front().expect("First monkey wasn't parsed");
-
-        let mut expected_items = Items::default();
-        expected_items.items.push_back(WorryLevel(79));
-        expected_items.items.push_back(WorryLevel(98));
-
-        assert_eq!(first.starting_items, expected_items);
-
-        let expected_operator = Operator::Multiplication;
-        let expected_operand = Operand::Value(19);
-
-        let expected_operation = Operation {
-            operator: expected_operator,
-            operand: expected_operand,
-        };
-
-        assert_eq!(first.operation, expected_operation);
-
-        let expected_test = Test {
-            divisible_by: 23,
-            when_true: ThrowTo(2),
-            when_false: ThrowTo(3),
-        };
-
-        assert_eq!(first.test, expected_test);
-    }
-}
