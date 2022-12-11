@@ -1,10 +1,13 @@
+use core::panic;
 use std::collections::VecDeque;
 
 pub fn solve() {
-    let monkies = parse_monkies(SAMPLE);
+    let mut monkies = parse_monkies(SAMPLE);
 
-    for monkey in monkies {
-        println!("{:?}", monkey);
+    for monkey in monkies.iter_mut() {
+        while let Some((item, target)) = monkey.inspect() {
+            println!("throwing {:?} to {:?}", item, target);
+        }
     }
 }
 
@@ -36,7 +39,7 @@ fn parse_monkies(input: &str) -> VecDeque<Monkey> {
                 state = State::Items;
             }
             State::Items => {
-                current_monkey.starting_items = StartingItems::from(line);
+                current_monkey.starting_items = Items::from(line);
                 state = State::Operation;
             }
             State::Operation => {
@@ -67,17 +70,75 @@ fn parse_monkies(input: &str) -> VecDeque<Monkey> {
 
 #[derive(Debug, Default, Clone, Hash, PartialEq)]
 struct Monkey {
-    starting_items: StartingItems,
+    starting_items: Items,
     operation: Operation,
     test: Test,
 }
 
-#[derive(Debug, Default, Clone, Hash, PartialEq)]
-struct StartingItems {
-    items: VecDeque<usize>,
+impl Monkey {
+    pub fn inspect(&mut self) -> Option<(WorryLevel, ThrowTo)> {
+        let worry_level = self.starting_items.items.pop_back()?;
+
+        println!("inspecting {:?}", worry_level);
+
+        let worry_level = self.update_worry(worry_level);
+
+        let throw_to = self.get_throw_target(&worry_level);
+
+        Some((worry_level, throw_to))
+    }
+
+    pub fn catch(&mut self, item: WorryLevel) {
+        self.starting_items.items.push_back(item);
+    }
+
+    fn update_worry(&self, worry_level: WorryLevel) -> WorryLevel {
+        let operand = &self.operation.operand;
+
+        let worry_level = match self.operation.operator {
+            Operator::Addition => match operand {
+                Operand::Value(value) => WorryLevel(worry_level.0 + value),
+                Operand::Variable(variable) => {
+                    if !variable.eq("old") {
+                        panic!("Expected `old` as variable but got {}", variable)
+                    }
+
+                    WorryLevel(worry_level.0 + worry_level.0)
+                }
+            },
+            Operator::Multiplication => match operand {
+                Operand::Value(value) => WorryLevel(worry_level.0 * value),
+                Operand::Variable(variable) => {
+                    if !variable.eq("old") {
+                        panic!("Expected `old` as variable but got {}", variable)
+                    }
+
+                    WorryLevel(worry_level.0 * worry_level.0)
+                }
+            },
+        };
+
+        WorryLevel(worry_level.0 / 3)
+    }
+
+    fn get_throw_target(&self, worry_level: &WorryLevel) -> ThrowTo {
+        if worry_level.0 % self.test.divisible_by == 0 {
+            self.test.when_true
+        } else {
+            self.test.when_false
+        }
+    }
 }
 
-impl From<&str> for StartingItems {
+#[derive(Debug, Default, Clone, Hash, PartialEq)]
+struct WorryLevel(usize);
+
+#[derive(Debug, Default, Clone, Hash, PartialEq)]
+struct Items {
+    items: VecDeque<WorryLevel>,
+}
+
+impl From<&str> for Items {
     fn from(s: &str) -> Self {
         let mut items = VecDeque::new();
 
@@ -88,17 +149,23 @@ impl From<&str> for StartingItems {
 
         for character in numbers.chars() {
             match character {
-                ',' => items.push_back(number.parse::<usize>().unwrap()),
+                ',' => {
+                    let number = number.parse::<usize>();
+                    let number = number.unwrap();
+                    let number = WorryLevel(number);
+                    items.push_front(number);
+                }
                 ' ' => number = String::new(),
                 _ => number.push(character),
             }
         }
 
         let last_number = number.parse::<usize>().unwrap();
+        let last_number = WorryLevel(last_number);
 
-        items.push_back(last_number);
+        items.push_front(last_number);
 
-        StartingItems { items }
+        Items { items }
     }
 }
 
@@ -256,7 +323,7 @@ Monkey 3:
 
 #[cfg(test)]
 mod tests {
-    use crate::day11::{StartingItems, Test, ThrowTo};
+    use crate::day11::{Items, Test, ThrowTo, WorryLevel};
 
     use super::{parse_monkies, Operand, Operation, Operator, SAMPLE};
 
@@ -266,9 +333,9 @@ mod tests {
 
         let first = monkies.pop_front().expect("First monkey wasn't parsed");
 
-        let mut expected_items = StartingItems::default();
-        expected_items.items.push_back(79);
-        expected_items.items.push_back(98);
+        let mut expected_items = Items::default();
+        expected_items.items.push_back(WorryLevel(79));
+        expected_items.items.push_back(WorryLevel(98));
 
         assert_eq!(first.starting_items, expected_items);
 
