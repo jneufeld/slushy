@@ -4,123 +4,11 @@ use std::{
 };
 
 pub fn solve() {
-    solve_part_two(SAMPLE);
+    solve_part_two(PUZZLE);
 }
 
-fn solve_part_two(input: &str) {
+fn solve_part_one(input: &str) -> isize {
     // A program is a sequence of instructions for the machine to execute
-    let program = parse_instructions(input);
-    let machine = VirtualMachine::new(program);
-
-    let mut screen = Screen::new(machine);
-    screen.refresh();
-
-    println!("{}", screen);
-}
-
-#[derive(Debug, Clone, Copy)]
-enum Pixel {
-    Lit,
-    Dark,
-}
-
-impl Into<char> for Pixel {
-    fn into(self) -> char {
-        match self {
-            Pixel::Lit => '#',
-            Pixel::Dark => '.',
-        }
-    }
-}
-
-/// Defined by the specification
-const SCREEN_WIDTH: usize = 40;
-
-/// Defined by the specification
-const SCREEN_HEIGHT: usize = 6;
-
-/// A screen is a visual output controlled by an underlying machine. In this
-/// case, the underlying machine executes a program which instructs the screen
-/// when and where to light pixels.
-struct Screen {
-    machine: VirtualMachine,
-    sprite_middle: isize,
-    pixels: [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT],
-}
-
-impl Screen {
-    fn new(machine: VirtualMachine) -> Self {
-        // Initially, every pixel is dark
-        let pixels = [Pixel::Dark; SCREEN_WIDTH * SCREEN_HEIGHT];
-
-        // A sprite is three pixels wide. Its middle is the easiest way to track
-        // its position. Initially, the middle is at index `1` so one pixel to
-        // the left (index `0`) and one to the right (index `2`) are also
-        // displayed.
-        let middle = 1;
-
-        Screen {
-            machine,
-            pixels,
-            sprite_middle: middle,
-        }
-    }
-
-    /// Refresh the screen so it is ready to be displayed. Underneath, this
-    /// cycles the VM to determine if a pixel should be lit or not.
-    fn refresh(&mut self) {
-        while self.machine.is_executing() {
-            self.light();
-            self.machine.cycle();
-            self.sprite_middle = self.machine.read_register();
-        }
-    }
-
-    /// Lights a pixel if the VM signals for it
-    fn light(&mut self) {
-        let middle = self.sprite_middle;
-        let register = self.machine.read_register();
-        let index = self.machine.get_ticks();
-
-        if index >= SCREEN_HEIGHT * SCREEN_WIDTH {
-            // TODO ?
-            return;
-        }
-
-        let should_light = register == middle || register - 1 == middle || register + 1 == middle;
-
-        if should_light {
-            self.pixels[index] = Pixel::Lit;
-        }
-
-        println!(
-            "cycle: {}, register: {}, sprite_middle: {}, should_light: {}",
-            index, register, middle, should_light
-        );
-    }
-}
-
-impl Display for Screen {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut column = 0;
-
-        for pixel in self.pixels {
-            if column == 40 {
-                writeln!(formatter).unwrap();
-                column = 0;
-            }
-
-            let pixel: char = pixel.into();
-            write!(formatter, "{}", pixel).unwrap();
-
-            column += 1;
-        }
-
-        writeln!(formatter)
-    }
-}
-
-fn solve_part_one(input: &str) {
     let program = parse_instructions(input);
     let mut machine = VirtualMachine::new(program);
 
@@ -152,7 +40,17 @@ fn solve_part_one(input: &str) {
         }
     }
 
-    println!("total signal strength: {}", signal_strength)
+    signal_strength
+}
+
+fn solve_part_two(input: &str) {
+    let program = parse_instructions(input);
+    let machine = VirtualMachine::new(program);
+
+    let mut screen = Screen::new(machine);
+    screen.refresh();
+
+    println!("{}", screen);
 }
 
 /// The problem's input is well formatted. Every line contains one instruction.
@@ -220,13 +118,18 @@ struct VirtualMachine {
 
 impl VirtualMachine {
     fn new(program: VecDeque<Instruction>) -> Self {
-        let in_flight = Some(Instruction::Noop);
+        let in_flight = None;
+
+        // Start at tick one then increment after completing a cycle.
+        //
+        // TODO This problem begs for property-directed testing!
+        let ticks = 1;
 
         VirtualMachine {
             program,
             in_flight,
+            ticks,
             register: 1, // Initially `1` by specification
-            ticks: 0,    // Initially `0` by specification
         }
     }
 
@@ -239,14 +142,17 @@ impl VirtualMachine {
     /// Cycles the CPU by executing the next instruction. This will increase
     /// the cycle counter and possibly the register (depending on the
     /// instruction).
+    ///
+    /// NB the cycle counter (i.e. `ticks`) is incremented only after the cycle
+    /// is complete.
     fn cycle(&mut self) {
-        self.ticks += 1;
-
         if self.in_flight.is_none() {
             self.schedule();
         } else {
             self.execute();
         }
+
+        self.ticks += 1;
     }
 
     /// An instruction is currently executing. In this architecture, that means
@@ -294,6 +200,235 @@ impl VirtualMachine {
     /// Returns the number of cycles performed by the CPU
     fn get_ticks(&self) -> usize {
         self.ticks
+    }
+}
+
+/// A single pixel on the screen. It can only be lit or dark.
+#[derive(Debug, Clone, Copy)]
+enum Pixel {
+    Lit,
+    Dark,
+}
+
+impl Into<char> for Pixel {
+    /// Transform the pixel into the character it should display on the screen
+    fn into(self) -> char {
+        match self {
+            Pixel::Lit => '#',
+            Pixel::Dark => '.',
+        }
+    }
+}
+
+/// Defined by the specification
+const SCREEN_WIDTH: usize = 40;
+
+/// Defined by the specification
+const SCREEN_HEIGHT: usize = 6;
+
+/// A screen is a visual output controlled by an underlying machine. In this
+/// case, the underlying machine executes a program which instructs the screen
+/// when and where to light pixels.
+struct Screen {
+    machine: VirtualMachine,
+    sprite_middle: isize,
+    pixels: [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT],
+}
+
+impl Screen {
+    /// Creates a new screen controlled by the given VM and its program
+    fn new(machine: VirtualMachine) -> Self {
+        // Initially, every pixel is dark
+        let pixels = [Pixel::Dark; SCREEN_WIDTH * SCREEN_HEIGHT];
+
+        // A sprite is three pixels wide. Its middle is the easiest way to track
+        // its position. Initially, the middle is at index `1` so one pixel to
+        // the left (index `0`) and one to the right (index `2`) are also
+        // displayed.
+        let middle = 1;
+
+        Screen {
+            machine,
+            pixels,
+            sprite_middle: middle,
+        }
+    }
+
+    /// Refresh the screen so it is ready to be displayed. Underneath, this
+    /// cycles the VM to determine if a pixel should be lit or not.
+    fn refresh(&mut self) {
+        while self.machine.is_executing() {
+            self.light();
+            self.machine.cycle();
+            self.sprite_middle = self.machine.read_register();
+        }
+    }
+
+    /// Lights a pixel if the VM signals for it
+    fn light(&mut self) {
+        // The screen updates pixels according to the program executing in the
+        // underlying VM. It cycles the VM 240 times -- once for each pixel on
+        // the screen. At each cycle, the index for the pixel is the machine's
+        // tick (or cycle count). Since it's an index, subtract one.
+        let screen_index = self.machine.get_ticks() - 1;
+        let middle = self.sprite_middle;
+
+        if screen_index >= SCREEN_HEIGHT * SCREEN_WIDTH {
+            // TODO this is required for the sample but not the puzzle input
+            return;
+        }
+
+        // The screen index maps into a flat array, but the screen is vertical.
+        // The row index is found using the screen width.
+        let row_index = screen_index % SCREEN_WIDTH;
+        let row_index = row_index as isize;
+
+        // The sprite is three pixels wide and tracked by its center position.
+        // Light the pixel when the underlying program's register value (given
+        // `screen_index` and `row_index`) aligns with the sprite's position on
+        // the row.
+        let should_light =
+            row_index == middle || row_index == middle - 1 || row_index == middle + 1;
+
+        let index = screen_index as usize;
+
+        if should_light {
+            self.pixels[index] = Pixel::Lit;
+        }
+    }
+}
+
+impl Display for Screen {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut column = 0;
+
+        for pixel in self.pixels {
+            if column == 40 {
+                writeln!(formatter).unwrap();
+                column = 0;
+            }
+
+            let pixel: char = pixel.into();
+            write!(formatter, "{}", pixel).unwrap();
+
+            column += 1;
+        }
+
+        writeln!(formatter)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::VecDeque;
+
+    use crate::day10::{PUZZLE, SAMPLE};
+
+    use super::{solve_part_one, Instruction, VirtualMachine};
+
+    #[test]
+    fn start_with_noop() {
+        let mut program = VecDeque::new();
+        program.push_back(Instruction::Noop);
+        program.push_back(Instruction::Addx(3));
+        program.push_back(Instruction::Addx(-5));
+
+        let mut vm = VirtualMachine::new(program);
+
+        assert_eq!(vm.get_ticks(), 1, "Wrong tick before starting");
+        assert_eq!(
+            vm.read_register(),
+            1,
+            "Wrong register value before starting"
+        );
+
+        vm.cycle();
+
+        assert_eq!(vm.get_ticks(), 2, "Wrong tick after noop");
+        assert_eq!(vm.read_register(), 1, "Wrong register value after noop");
+
+        vm.cycle();
+
+        assert_eq!(vm.get_ticks(), 3, "Wrong tick after starting `Addx 3`");
+        assert_eq!(
+            vm.read_register(),
+            1,
+            "Wrong register value after starting `Addx 3`"
+        );
+
+        vm.cycle();
+
+        assert_eq!(vm.get_ticks(), 4, "Wrong tick after finishing `Addx 3`");
+        assert_eq!(
+            vm.read_register(),
+            4,
+            "Wrong register value after finishing `Addx 3`"
+        );
+
+        vm.cycle();
+
+        assert_eq!(vm.get_ticks(), 5, "Wrong tick after starting `Addx -5`");
+        assert_eq!(
+            vm.read_register(),
+            4,
+            "Wrong register value after starting `Addx -5`"
+        );
+
+        vm.cycle();
+
+        assert_eq!(vm.get_ticks(), 6, "Wrong tick after finishing `Addx -5`");
+        assert_eq!(
+            vm.read_register(),
+            -1,
+            "Wrong register value after finishing `Addx -5`"
+        );
+    }
+
+    #[test]
+    fn start_with_add() {
+        let mut program = VecDeque::new();
+        program.push_back(Instruction::Addx(15));
+        program.push_back(Instruction::Addx(-11));
+        program.push_back(Instruction::Addx(6));
+
+        let mut vm = VirtualMachine::new(program);
+
+        assert_eq!(vm.get_ticks(), 1, "Wrong tick before starting");
+        assert_eq!(
+            vm.read_register(),
+            1,
+            "Wrong register value before starting"
+        );
+
+        vm.cycle();
+
+        assert_eq!(vm.get_ticks(), 2, "Wrong tick after starting `Addx 15`");
+        assert_eq!(
+            vm.read_register(),
+            1,
+            "Wrong register value after starting `Addx 15`"
+        );
+
+        vm.cycle();
+
+        assert_eq!(vm.get_ticks(), 3, "Wrong tick after finishing `Addx 15`");
+        assert_eq!(
+            vm.read_register(),
+            16,
+            "Wrong register value after finishing `Addx 15`"
+        );
+    }
+
+    #[test]
+    fn part_one_sample() {
+        let signal_strength = solve_part_one(SAMPLE);
+        assert_eq!(signal_strength, 13140);
+    }
+
+    #[test]
+    fn part_one_contest() {
+        let signal_strength = solve_part_one(PUZZLE);
+        assert_eq!(signal_strength, 12980);
     }
 }
 
@@ -444,7 +579,7 @@ noop
 noop
 noop";
 
-const CONTEST: &str = r"noop
+const PUZZLE: &str = r"noop
 noop
 addx 5
 noop
