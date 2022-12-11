@@ -6,25 +6,42 @@ use std::{
 
 use indexmap::IndexMap;
 
+const ROUNDS: usize = 20;
+
 pub fn solve() {
-    let mut monkies = parse_monkies(SAMPLE);
+    let input = PUZZLE;
+
+    let mut monkies = parse_monkies(input);
     let num_monkeys = monkies.len();
 
-    for round in 1..21 {
+    // Monkey around :shrug:
+    for _ in 1..ROUNDS + 1 {
         for idx in 0..num_monkeys {
             while let Some((item, target)) = monkies.get_mut(&idx).unwrap().inspect() {
                 monkies.entry(target.0).and_modify(|m| m.catch(item));
             }
         }
-
-        println!("at end of round {}:", round);
-
-        for (number, monkey) in monkies.iter() {
-            println!("\tmonkey {}: {}", number, monkey);
-        }
-
-        println!();
     }
+
+    // Sort by how many items were inspected
+    monkies.sort_by(|_, m1, _, m2| m2.inspected.cmp(&m1.inspected));
+
+    println!("after {} rounds sorted by items inspected:", ROUNDS);
+
+    for (number, monkey) in monkies.iter() {
+        println!("\tmonkey {}: {}", number, monkey);
+    }
+
+    // Asking the important questions: what's the degree of this monkey
+    // business?
+    let mut top_two = monkies.iter().take(2);
+
+    let (_, first) = top_two.next().unwrap();
+    let (_, second) = top_two.next().unwrap();
+
+    let monkey_business = first.inspected * second.inspected;
+
+    println!("monkey business: {}", monkey_business);
 }
 
 enum State {
@@ -93,6 +110,7 @@ struct Monkey {
     items: Items,
     operation: Operation,
     test: Test,
+    inspected: usize,
 }
 
 impl Monkey {
@@ -100,6 +118,8 @@ impl Monkey {
         let worry_level = self.items.items.pop_back()?;
         let worry_level = self.update_worry(worry_level);
         let throw_to = self.get_throw_target(&worry_level);
+
+        self.inspected += 1;
 
         Some((worry_level, throw_to))
     }
@@ -148,7 +168,11 @@ impl Monkey {
 
 impl Display for Monkey {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "items: {:?}", self.items)
+        write!(
+            formatter,
+            "items (inspected {}): {:?}",
+            self.inspected, self.items
+        )
     }
 }
 
@@ -342,3 +366,59 @@ Monkey 3:
   Test: divisible by 17
     If true: throw to monkey 0
     If false: throw to monkey 1";
+
+const PUZZLE: &str = r"Monkey 0:
+  Starting items: 98, 70, 75, 80, 84, 89, 55, 98
+  Operation: new = old * 2
+  Test: divisible by 11
+    If true: throw to monkey 1
+    If false: throw to monkey 4
+
+Monkey 1:
+  Starting items: 59
+  Operation: new = old * old
+  Test: divisible by 19
+    If true: throw to monkey 7
+    If false: throw to monkey 3
+
+Monkey 2:
+  Starting items: 77, 95, 54, 65, 89
+  Operation: new = old + 6
+  Test: divisible by 7
+    If true: throw to monkey 0
+    If false: throw to monkey 5
+
+Monkey 3:
+  Starting items: 71, 64, 75
+  Operation: new = old + 2
+  Test: divisible by 17
+    If true: throw to monkey 6
+    If false: throw to monkey 2
+
+Monkey 4:
+  Starting items: 74, 55, 87, 98
+  Operation: new = old * 11
+  Test: divisible by 3
+    If true: throw to monkey 1
+    If false: throw to monkey 7
+
+Monkey 5:
+  Starting items: 90, 98, 85, 52, 91, 60
+  Operation: new = old + 7
+  Test: divisible by 5
+    If true: throw to monkey 0
+    If false: throw to monkey 4
+
+Monkey 6:
+  Starting items: 99, 51
+  Operation: new = old + 1
+  Test: divisible by 13
+    If true: throw to monkey 5
+    If false: throw to monkey 2
+
+Monkey 7:
+  Starting items: 98, 94, 59, 76, 51, 65, 75
+  Operation: new = old + 5
+  Test: divisible by 2
+    If true: throw to monkey 3
+    If false: throw to monkey 6";
