@@ -52,7 +52,10 @@ pub fn shortest_path(
             if tentative_graph_score < current_score {
                 predecessors.insert(neighbour, current);
                 graph_score.insert(neighbour, tentative_graph_score);
-                guess_score.insert(neighbour, tentative_graph_score + heuristic(neighbour));
+                guess_score.insert(
+                    neighbour,
+                    tentative_graph_score + heuristic(neighbour),
+                );
 
                 if !frontier.contains(&neighbour) {
                     frontier.push_back(neighbour);
@@ -70,7 +73,10 @@ pub fn shortest_path(
     None
 }
 
-fn build_path(current: Position, predecessors: HashMap<Position, Position>) -> VecDeque<Position> {
+fn build_path(
+    current: Position,
+    predecessors: HashMap<Position, Position>,
+) -> VecDeque<Position> {
     let mut path = VecDeque::new();
     path.push_back(current);
 
@@ -115,7 +121,11 @@ fn get_neighbours(node: Position, map: &HashSet<Position>) -> Vec<Position> {
     neighbours
 }
 
-fn can_go(from: Position, destination: Position, map: &HashSet<Position>) -> Option<Position> {
+fn can_go(
+    from: Position,
+    destination: Position,
+    map: &HashSet<Position>,
+) -> Option<Position> {
     // If the destination isn't on the map then it is unreachable
     if let Some(destination) = map.get(&destination) {
         // The destination is on the map. It is reachable according to height

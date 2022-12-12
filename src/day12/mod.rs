@@ -42,7 +42,8 @@ fn parse_map(input: &str) -> (HashSet<Position>, Position, Position) {
     for (row_num, line) in input.split('\n').enumerate() {
         for (col_num, character) in line.chars().enumerate() {
             let height = Height::from(character);
-            let position = Position::new(row_num as isize, col_num as isize, height);
+            let position =
+                Position::new(row_num as isize, col_num as isize, height);
 
             if start.is_none() && Position::is_start(character) {
                 start = Some(position);
