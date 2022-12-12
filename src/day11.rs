@@ -6,12 +6,31 @@ use std::{
 
 use indexmap::IndexMap;
 
-const ROUNDS: usize = 20;
+// Here only for convenience of testing in the terminal
+const ROUNDS: usize = 10_000;
+const INPUT: &str = PUZZLE;
 
+/// Part two only
 pub fn solve() {
-    let input = PUZZLE;
+    let mut monkies = parse_monkies(INPUT);
 
-    let mut monkies = parse_monkies(input);
+    // A few cues pushed me towards LCM and this calculation. First, the test
+    // operation is division. Second, even in the sample input, the operand is
+    // prime. That pattern is made glaringly obvious in the puzzle input. Those
+    // ideas plus the need to keep sizes bounded (operations are monotonically
+    // increasing) were the tricky part of the problem.
+    let least_common_multiple: u128 = monkies
+        .iter()
+        .map(|(_, monkey)| monkey.test.divisible_by)
+        .product();
+
+    // I don't think `modulus` is the correct terminology :shrug: Is it
+    // `modulo` like "the positive integers modulo n"? I've been out of school
+    // too long to remember.
+    monkies
+        .iter_mut()
+        .for_each(|(_, monkey)| monkey.operation.modulus = Some(least_common_multiple));
+
     let num_monkeys = monkies.len();
 
     // Monkey around :shrug:
@@ -26,12 +45,6 @@ pub fn solve() {
     // Sort by how many items were inspected
     monkies.sort_by(|_, m1, _, m2| m2.inspected.cmp(&m1.inspected));
 
-    println!("after {} rounds sorted by items inspected:", ROUNDS);
-
-    for (number, monkey) in monkies.iter() {
-        println!("\tmonkey {}: {}", number, monkey);
-    }
-
     // Asking the important questions: what's the degree of this monkey
     // business?
     let mut top_two = monkies.iter().take(2);
@@ -44,6 +57,7 @@ pub fn solve() {
     println!("monkey business: {}", monkey_business);
 }
 
+/// States for parsing (think state machine)
 enum State {
     Monkey,
     Items,
@@ -115,8 +129,9 @@ struct Monkey {
 
 impl Monkey {
     pub fn inspect(&mut self) -> Option<(WorryLevel, ThrowTo)> {
-        let worry_level = self.items.items.pop_back()?;
-        let worry_level = self.update_worry(worry_level);
+        let worry_level = self.items.items.pop_back()?; // .items.item.items -_-
+        let worry_level = worry_level.modify_with(&self.operation);
+
         let throw_to = self.get_throw_target(&worry_level);
 
         self.inspected += 1;
@@ -128,37 +143,8 @@ impl Monkey {
         self.items.items.push_front(item);
     }
 
-    fn update_worry(&self, worry_level: WorryLevel) -> WorryLevel {
-        let operand = &self.operation.operand;
-
-        let worry_level = match self.operation.operator {
-            Operator::Addition => match operand {
-                Operand::Value(value) => WorryLevel(worry_level.0 + value),
-                Operand::Variable(variable) => {
-                    if !variable.eq("old") {
-                        panic!("Expected `old` as variable but got {}", variable)
-                    }
-
-                    WorryLevel(worry_level.0 + worry_level.0)
-                }
-            },
-            Operator::Multiplication => match operand {
-                Operand::Value(value) => WorryLevel(worry_level.0 * value),
-                Operand::Variable(variable) => {
-                    if !variable.eq("old") {
-                        panic!("Expected `old` as variable but got {}", variable)
-                    }
-
-                    WorryLevel(worry_level.0 * worry_level.0)
-                }
-            },
-        };
-
-        WorryLevel(worry_level.0 / 3)
-    }
-
     fn get_throw_target(&self, worry_level: &WorryLevel) -> ThrowTo {
-        if worry_level.0 % self.test.divisible_by == 0 {
+        if worry_level.value % self.test.divisible_by == 0 {
             self.test.when_true
         } else {
             self.test.when_false
@@ -176,8 +162,35 @@ impl Display for Monkey {
     }
 }
 
-#[derive(Debug, Default, Clone, Hash, PartialEq)]
-struct WorryLevel(usize);
+#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Ord)]
+struct WorryLevel {
+    value: u128,
+}
+
+impl WorryLevel {
+    fn modify_with(self, operation: &Operation) -> Self {
+        let operator = &operation.operator;
+        let operand = &operation.operand;
+
+        let updated_level = match (operator, operand) {
+            (Operator::Addition, Operand::Value(operand)) => self.value + operand,
+            (Operator::Addition, Operand::Variable(_)) => self.value + self.value,
+            (Operator::Multiplication, Operand::Value(operand)) => self.value * operand,
+            (Operator::Multiplication, Operand::Variable(_)) => self.value * self.value,
+        };
+
+        match operation.modulus {
+            Some(modulus) => WorryLevel::from(updated_level % modulus),
+            None => panic!("no modulus provided"),
+        }
+    }
+}
+
+impl From<u128> for WorryLevel {
+    fn from(value: u128) -> Self {
+        WorryLevel { value }
+    }
+}
 
 #[derive(Debug, Default, Clone, Hash, PartialEq)]
 struct Items {
@@ -196,9 +209,8 @@ impl From<&str> for Items {
         for character in numbers.chars() {
             match character {
                 ',' => {
-                    let number = number.parse::<usize>();
-                    let number = number.unwrap();
-                    let number = WorryLevel(number);
+                    let number = number.parse::<u128>();
+                    let number = WorryLevel::from(number.unwrap());
                     items.push_front(number);
                 }
                 ' ' => number = String::new(),
@@ -206,10 +218,9 @@ impl From<&str> for Items {
             }
         }
 
-        let last_number = number.parse::<usize>().unwrap();
-        let last_number = WorryLevel(last_number);
+        let last_number = number.parse::<u128>().unwrap();
 
-        items.push_front(last_number);
+        items.push_front(WorryLevel::from(last_number));
 
         Items { items }
     }
@@ -219,6 +230,7 @@ impl From<&str> for Items {
 struct Operation {
     operator: Operator,
     operand: Operand,
+    modulus: Option<u128>,
 }
 
 impl From<&str> for Operation {
@@ -241,7 +253,11 @@ impl From<&str> for Operation {
         let operand: String = operation.collect();
         let operand = Operand::from(operand);
 
-        Operation { operator, operand }
+        Operation {
+            operator,
+            operand,
+            modulus: None,
+        }
     }
 }
 
@@ -270,7 +286,7 @@ impl From<char> for Operator {
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 enum Operand {
-    Value(usize),
+    Value(u128),
     Variable(String),
 }
 
@@ -295,7 +311,7 @@ struct ThrowTo(usize);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq)]
 struct Test {
-    divisible_by: usize,
+    divisible_by: u128,
     when_true: ThrowTo,
     when_false: ThrowTo,
 }
@@ -315,7 +331,7 @@ impl Test {
         let input = line.trim();
         let ignore_len = "Test: divisible by ".len();
         let (_ignore, number) = input.split_at(ignore_len);
-        let number = number.parse::<usize>().unwrap();
+        let number = number.parse::<u128>().unwrap();
 
         self.divisible_by = number;
     }
@@ -338,34 +354,6 @@ impl Test {
         self.when_false = ThrowTo(number);
     }
 }
-
-const SAMPLE: &str = r"Monkey 0:
-  Starting items: 79, 98
-  Operation: new = old * 19
-  Test: divisible by 23
-    If true: throw to monkey 2
-    If false: throw to monkey 3
-
-Monkey 1:
-  Starting items: 54, 65, 75, 74
-  Operation: new = old + 6
-  Test: divisible by 19
-    If true: throw to monkey 2
-    If false: throw to monkey 0
-
-Monkey 2:
-  Starting items: 79, 60, 97
-  Operation: new = old * old
-  Test: divisible by 13
-    If true: throw to monkey 1
-    If false: throw to monkey 3
-
-Monkey 3:
-  Starting items: 74
-  Operation: new = old + 3
-  Test: divisible by 17
-    If true: throw to monkey 0
-    If false: throw to monkey 1";
 
 const PUZZLE: &str = r"Monkey 0:
   Starting items: 98, 70, 75, 80, 84, 89, 55, 98
