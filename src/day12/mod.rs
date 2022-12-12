@@ -1,18 +1,16 @@
 use std::collections::HashSet;
 
-use crate::day12::dijkstra::shortest_path;
-
 use self::{height::Height, position::Position};
 
-mod dijkstra;
 mod height;
+mod pathfinding;
 mod position;
 
 pub fn solve() {
     let input = PUZZLE;
 
     let (map, start, goal) = parse_map(input);
-    let path = shortest_path(start, goal, &map);
+    let path = pathfinding::shortest_path(start, goal, &map);
 
     // Subtract one because the first position in the path is the starting
     // position. That doesn't count as a step.

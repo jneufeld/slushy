@@ -2,6 +2,14 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::position::Position;
 
+/// Returns the shortest path if it exists (otherwise `None`).
+///
+/// Forgive the sloppy implementation. I think it's mostly A* and not Dijkstra.
+/// In school, I worked with Dijkstra a lot but never wrote A*. This was an
+/// opportunity. But I also got frustrated debugging `Eq`, `Ord`, and `Hash`
+/// on other aspects of this problem.
+///
+/// NB Rust `BinaryHeap` is a max-heap that should be used for `frontier`.
 pub fn shortest_path(
     start: Position,
     goal: Position,
@@ -119,9 +127,3 @@ fn can_go(from: Position, destination: Position, map: &HashSet<Position>) -> Opt
 
     None
 }
-
-// v..v<<<<
-// >v.vv<<^
-// .>vv>E^^
-// ..v>>>^^
-// ..>>>>>^"
