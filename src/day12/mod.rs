@@ -9,15 +9,26 @@ mod position;
 pub fn solve() {
     let input = PUZZLE;
 
-    let (map, start, goal) = parse_map(input);
-    let path = pathfinding::shortest_path(start, goal, &map);
+    let (map, _start, goal) = parse_map(input);
+    let starting_positions = get_starting_positions(&map);
 
-    // Subtract one because the first position in the path is the starting
-    // position. That doesn't count as a step.
-    match path {
-        Some(path) => println!("steps: {}", path.len() - 1),
-        None => println!("no path found"),
+    let mut fewest_steps = usize::MAX;
+
+    for start in starting_positions {
+        if let Some(path) = pathfinding::shortest_path(start, goal, &map) {
+            // NB subtract one because the starting position doesn't count
+            // as a step despite being part of the path!
+            let steps = path.len() - 1;
+
+            println!("path from {:?} to {:?} is {} steps", start, goal, steps,);
+
+            if steps < fewest_steps {
+                fewest_steps = steps;
+            }
+        }
     }
+
+    println!("fewest steps: {}", fewest_steps);
 }
 
 /// Returns the set of squares parsed, the starting position, and the goal
@@ -49,6 +60,18 @@ fn parse_map(input: &str) -> (HashSet<Position>, Position, Position) {
     let goal = goal.unwrap();
 
     (map, start, goal)
+}
+
+fn get_starting_positions(map: &HashSet<Position>) -> Vec<Position> {
+    let mut positions = Vec::new();
+
+    for position in map {
+        if position.is_lowest() {
+            positions.push(position.to_owned());
+        }
+    }
+
+    positions
 }
 
 const SAMPLE: &str = "Sabqponm

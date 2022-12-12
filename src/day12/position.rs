@@ -62,6 +62,10 @@ impl Position {
         self.height.get_value()
     }
 
+    pub fn is_lowest(&self) -> bool {
+        self.height.is_lowest()
+    }
+
     pub fn is_start(c: char) -> bool {
         c == 'S'
     }

@@ -14,6 +14,10 @@ impl Height {
     pub fn get_value(&self) -> u8 {
         self.value
     }
+
+    pub fn is_lowest(&self) -> bool {
+        self.value == b'a'
+    }
 }
 
 impl From<char> for Height {
