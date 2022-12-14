@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 pub fn parse_packets(input: &str) -> Vec<(Item, Item)> {
     let mut pairs = Vec::new();
 
@@ -20,47 +22,56 @@ pub fn parse_packets(input: &str) -> Vec<(Item, Item)> {
 }
 
 fn parse_list(text: &str) -> Item {
-    let mut all: Item = Item::List(Vec::new());
+    let mut previous: VecDeque<Item> = VecDeque::new();
+    let mut current_list_of_items = Vec::new();
 
-    let mut parent: Option<Item> = None;
-    let mut current: Option<Item> = None;
+    let mut characters = text.chars().peekable();
 
-    while let Some(c) = text.chars().next() {
-        match c {
-            ',' => continue,
-            '[' => match current {
-                None => current = Some(all),
-                Some(list) => match list {
-                    Item::Digit(_) => todo!(),
-                    Item::List(list) => {
-                    }
-                }
-                    current = Some(Item::List(Vec::new()));
-                }
-            },
-            ']' => {
-                match current {
-                    None => panic!("ended list parsing without current list"),
-                    Some(item) => match item {
-                        Item::Digit(_) => todo!(),
-                        Item::List(list) => {
-                            current = parent;
-                            // TODO pop off stack properly
-                        }
-                    },
-                }
-            }
-            _ => match current {
-                None => panic!("parsing number without list to put it in"),
+    let _ignore = characters.next();
+
+    while let Some(character) = characters.next() {
+        if character.is_ascii_digit() {
+            //println!(
+            //    "adding digit: {} onto current_list: {:?}",
+            //    character, &current_list_of_digits
+            //);
+
+            current_list_of_items.push(Item::from(character)); // TODO `10`?
+        } else if character == '[' {
+            //println!(
+            //    "pushing: {:?}\nonto: {:?}\n",
+            //    &current_list_of_digits, &previous
+            //);
+
+            previous.push_back(Item::List(current_list_of_items));
+            current_list_of_items = Vec::new();
+        } else if character == ']' {
+            match previous.pop_back() {
                 Some(item) => match item {
-                    Item::Digit(_) => todo!(),
-                    Item::List(list) => list.push(Item::from(c)),
+                    Item::Digit(_) => {
+                        panic!("popped digit off stack of lists")
+                    }
+                    Item::List(mut list) => {
+                        //println!(
+                        //    "popped: {:?}\nonto: {:?}\n",
+                        //    &list, &current_list_of_digits
+                        //);
+
+                        //current_list_of_digits.extend(list);
+
+                        list.extend(current_list_of_items.clone());
+                        current_list_of_items = list;
+                    }
                 },
-            },
+                None => continue,
+            }
         }
     }
 
-    all
+    //println!("final list: {:?}", &current_list_of_digits);
+    previous.extend(current_list_of_items);
+
+    Item::List(previous.into())
 }
 
 #[derive(Debug, Clone)]
