@@ -3,8 +3,8 @@ use crate::day13::item::{Item, Smaller};
 mod item;
 
 pub fn solve() {
-    // SAMPLE: 13, PUZZLE: 6296 (low)
-    let input = SAMPLE;
+    // SAMPLE: 13, PUZZLE: 6568
+    let input = PUZZLE;
     solve_with_item(input);
 }
 
@@ -14,13 +14,6 @@ fn solve_with_item(input: &str) {
     let mut index_sum = 0;
 
     for (left, right) in item::parse_packets(input) {
-        let ordered = Item::is_ordered(&left, &right);
-
-        println!(
-            "left:  {:?}\nright: {:?}\nordered: {:?}\n\n",
-            left, right, ordered
-        );
-
         match Item::is_ordered(&left, &right) {
             Smaller::Left | Smaller::Equal => index_sum += index,
             Smaller::Right => (),
