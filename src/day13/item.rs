@@ -1,31 +1,19 @@
-use std::collections::VecDeque;
+use std::{cmp::Ordering, collections::VecDeque};
 
-pub fn parse_packets(input: &str) -> Vec<(Item, Item)> {
-    let mut pairs = Vec::new();
+pub fn parse_packets(input: &str) -> Vec<Item> {
+    let mut packets = Vec::new();
 
     let mut lines = input.split('\n').peekable();
 
-    while let Some(_) = lines.peek() {
-        let maybe_first = lines.next().unwrap();
-
-        if maybe_first.is_empty() {
+    while let Some(line) = lines.next() {
+        if line.is_empty() {
             continue;
         }
 
-        let first = Item::from(maybe_first);
-        let second = Item::from(lines.next().unwrap());
-
-        pairs.push((first, second));
+        packets.push(Item::from(line));
     }
 
-    pairs
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Smaller {
-    Equal,
-    Left,
-    Right,
+    packets
 }
 
 #[derive(Debug, Clone)]
@@ -35,16 +23,41 @@ pub enum Item {
 }
 
 impl Item {
-    pub fn is_ordered(left: &Item, right: &Item) -> Smaller {
+    pub fn is_marker(&self, number: usize) -> bool {
+        match self {
+            Item::Digit(_) => false,
+            Item::List(outer_list) => {
+                if outer_list.len() != 1 {
+                    return false;
+                }
+
+                match outer_list.first().unwrap() {
+                    Item::Digit(_) => false,
+                    Item::List(inner_list) => {
+                        if inner_list.len() == 1 {
+                            match inner_list.first().unwrap() {
+                                Item::Digit(digit) => return *digit == number,
+                                Item::List(_) => return false,
+                            }
+                        }
+
+                        false
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn is_ordered(left: &Item, right: &Item) -> Ordering {
         match (left, right) {
             // Digits are trivially compared
             (Item::Digit(left), Item::Digit(right)) => {
                 if left < right {
-                    Smaller::Left
+                    Ordering::Less
                 } else if left == right {
-                    Smaller::Equal
+                    Ordering::Equal
                 } else {
-                    Smaller::Right
+                    Ordering::Greater
                 }
             }
 
@@ -69,24 +82,24 @@ impl Item {
                 while let Some(left_item) = left_items.next() {
                     if let Some(right_item) = right_items.next() {
                         match Item::is_ordered(left_item, right_item) {
-                            Smaller::Equal => continue,
-                            Smaller::Left => return Smaller::Left,
-                            Smaller::Right => return Smaller::Right,
+                            Ordering::Equal => continue,
+                            Ordering::Less => return Ordering::Less,
+                            Ordering::Greater => return Ordering::Greater,
                         }
                     }
 
                     // If the right list runs out of elements before the left
                     // then these lists are not ordered
-                    return Smaller::Right;
+                    return Ordering::Greater;
                 }
 
                 if left.len() < right.len() {
-                    return Smaller::Left;
+                    return Ordering::Less;
                 } else if left.len() == right.len() {
-                    return Smaller::Equal;
+                    return Ordering::Equal;
                 }
 
-                return Smaller::Right;
+                return Ordering::Greater;
             }
         }
     }

@@ -1,28 +1,31 @@
-use crate::day13::item::{Item, Smaller};
+use crate::day13::item::Item;
 
 mod item;
 
 pub fn solve() {
     // SAMPLE: 13, PUZZLE: 6568
     let input = PUZZLE;
-    solve_with_item(input);
-}
 
-fn solve_with_item(input: &str) {
-    // Yes, it starts at one and not zero
-    let mut index = 1;
-    let mut index_sum = 0;
+    // Add the divider markers to the input
+    let first_marker = 2;
+    let second_marker = 6;
 
-    for (left, right) in item::parse_packets(input) {
-        match Item::is_ordered(&left, &right) {
-            Smaller::Left | Smaller::Equal => index_sum += index,
-            Smaller::Right => (),
+    let input =
+        format!("{}\n[[{}]]\n[[{}]]", input, first_marker, second_marker);
+
+    let mut packets = item::parse_packets(&input);
+    packets.sort_by(|left, right| Item::is_ordered(&left, &right));
+
+    let mut result = 1;
+
+    for (idx, packet) in packets.iter().enumerate() {
+        if packet.is_marker(first_marker) || packet.is_marker(second_marker) {
+            let idx = idx + 1;
+            result *= idx;
         }
-
-        index += 1;
     }
 
-    println!("index sum: {}", index_sum);
+    println!("decoder key: {}", result);
 }
 
 const SAMPLE: &str = "[1,1,3,1,1]
