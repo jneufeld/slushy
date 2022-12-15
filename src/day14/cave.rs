@@ -7,68 +7,68 @@ pub struct Cave {
     /// Positions of rocks within the cave
     rocks: HashSet<Position>,
 
-    /// The deepest y-value across all rocks. Below this depth, there are no
-    /// rocks.
-    oblivion_depth: usize,
+    /// The y-value of the cave floor
+    floor_level: usize,
 
-    // Positions of sand at rest within the cave
+    /// Positions of sand at rest within the cave
     resting_sand: HashSet<Position>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum SandPlacement {
-    Resting(Position),
-    FreeFall,
 }
 
 impl Cave {
     /// Sand is always dropped from coordinates (500, 0). It must be dropped one
     /// unit at a time per the problem requirements. Later, the problem solves
-    /// on how many grains of sand come to rest. No point in optimizing this by
-    /// dropping multiple grains of sand before necessary.
-    pub fn drop_sand(&mut self) -> SandPlacement {
+    /// on how many grains of sand come to rest.
+    pub fn drop_sand(&mut self) -> Position {
         // Start the sand at (500, 0) and drop until it comes to rest
         let mut position = Position::new(500, 0);
 
         loop {
-            // If the sand couldn't fall then it has come to a rest. Record its
-            // final position then break to return the result.
-            if position.y > self.oblivion_depth {
-                return SandPlacement::FreeFall;
-            }
-
             // Sand falls straight down if possible
-            if !self.is_blocked(&position.down()) {
-                position = position.down();
+            let down = position.down();
+
+            if !self.is_blocked(&down) {
+                position = down;
                 continue;
             }
 
             // Else sand falls down and left
-            if !self.is_blocked(&position.down_and_left()) {
-                position = position.down_and_left();
+            let down_and_left = position.down_and_left();
+
+            if !self.is_blocked(&down_and_left) {
+                position = down_and_left;
                 continue;
             }
 
-            // Else sand falls down AND right
-            if !self.is_blocked(&position.down_and_right()) {
-                position = position.down_and_right();
+            // Else sand falls down and right
+            let down_and_right = position.down_and_right();
+
+            if !self.is_blocked(&down_and_right) {
+                position = down_and_right;
                 continue;
             }
 
-            // Sand cannot move and is not falling into the darkness below. It
-            // has come to a rest.
             self.resting_sand.insert(position);
-            return SandPlacement::Resting(position);
+
+            break;
         }
+
+        position
     }
 
     pub fn count_at_rest(&self) -> usize {
         self.resting_sand.len()
     }
 
-    /// A position in the cave is blocked if it contains a rock or resting sand
+    pub fn is_dropping_point(&self, position: &Position) -> bool {
+        position.x == 500 && position.y == 0
+    }
+
+    /// A position in the cave is blocked if it contains a rock, contains
+    /// resting sand, or is on the floor.
     fn is_blocked(&self, position: &Position) -> bool {
-        self.rocks.contains(position) || self.resting_sand.contains(position)
+        self.floor_level <= position.y
+            || self.rocks.contains(position)
+            || self.resting_sand.contains(position)
     }
 }
 
@@ -76,9 +76,13 @@ impl From<&str> for Cave {
     fn from(input: &str) -> Self {
         let (rocks, lowest) = parse_rocks(input);
 
+        // By problem definition, the floor depth is two levels below the lowest
+        // rock. In this coordinate system, that's addition.
+        let floor_level = lowest + 2;
+
         Cave {
             rocks,
-            oblivion_depth: lowest,
+            floor_level,
             resting_sand: HashSet::new(),
         }
     }

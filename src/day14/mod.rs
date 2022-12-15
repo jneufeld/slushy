@@ -1,18 +1,18 @@
-use crate::day14::cave::{Cave, SandPlacement};
+use crate::day14::cave::Cave;
 
 mod cave;
 mod position;
 
 pub fn solve() {
-    // Sample: 24, puzzle: 696
     let input = PUZZLE;
 
     let mut cave = Cave::from(input);
 
     loop {
-        match cave.drop_sand() {
-            SandPlacement::FreeFall => break,
-            SandPlacement::Resting(_placement) => continue,
+        let position = cave.drop_sand();
+
+        if cave.is_dropping_point(&position) {
+            break;
         }
     }
 
