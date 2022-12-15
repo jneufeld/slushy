@@ -33,15 +33,22 @@ impl From<&str> for Cave {
         let mut rocks: HashSet<Position> = HashSet::new();
         let mut lowest_rock = 0;
 
+        // Deep nesting is a bad sign. For now, documentation will help.
+        // Refactoring is needed though.
         for line in input.split('\n') {
             let mut characters = line.chars().peekable();
             let mut previous: Option<Position> = None;
 
+            // Loop on knowledge there is a next character -- but don't consume
+            // it yet. The `characters` iterator is passed to parsing functions
+            // so it can advance as needed. This is only a control loop.
             while let Some(character) = characters.peek() {
                 match character {
+                    // Consume and skip separators
                     ' ' | '-' | '>' => {
                         let _ignore = characters.next();
                     }
+                    // Otherwise parse the position
                     _ => {
                         let position = parse_position(&mut characters);
 
@@ -51,6 +58,8 @@ impl From<&str> for Cave {
 
                         rocks.insert(position);
 
+                        // When the input indicates a line between positions it
+                        // must be filled in programmatically
                         if let Some(previous) = previous {
                             let positions =
                                 get_line_between(&position, &previous);
