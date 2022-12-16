@@ -8,25 +8,51 @@ mod zone;
 
 pub fn solve() {
     let input = PUZZLE_INPUT;
-    let magic_y = PUZZLE_Y;
 
     let coverage = Coverage::from(input);
 
-    let min_x = coverage.get_min_reach().x;
-    let max_x = coverage.get_max_reach().y;
+    let min_x = std::cmp::max(coverage.get_min_reach().x, MIN_X);
+    let max_x = std::cmp::min(coverage.get_max_reach().x, MAX_X);
 
-    let mut count = 0;
+    println!("searching for {} <= x <= {}", min_x, max_x);
 
-    for x in min_x..max_x {
-        let p = Position::new(x, magic_y);
+    let min_y = std::cmp::max(coverage.get_min_reach().y, MIN_Y);
+    let max_y = std::cmp::min(coverage.get_max_reach().y, MAX_Y);
 
-        if !coverage.is_occupied(p) && coverage.contains(p) {
-            count += 1;
+    println!("searching for {} <= y <= {}", min_y, max_y);
+
+    let mut distress_signal = None;
+
+    for x in min_x..max_x + 1 {
+        for y in min_y..max_y + 1 {
+            let point = Position::new(x, y);
+
+            if coverage.is_occupied(point) || coverage.contains(point) {
+                continue;
+            }
+
+            distress_signal = Some(point);
+
+            println!("found a solution at {:?}", point);
         }
     }
 
-    println!("y={} count={}", magic_y, count);
+    let distress_signal = distress_signal.unwrap();
+
+    println!("distress signal position: {:?}", distress_signal);
+
+    let tuning_frequency = distress_signal.x * X_THINGY + distress_signal.y;
+
+    println!("tuning frequency: {}", tuning_frequency);
 }
+
+const MIN_X: isize = 0;
+const MAX_X: isize = 4_000_000;
+
+const MIN_Y: isize = 0;
+const MAX_Y: isize = 4_000_000;
+
+const X_THINGY: isize = 4_000_000;
 
 const SAMPLE_Y: isize = 10;
 
