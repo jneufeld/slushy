@@ -57,6 +57,19 @@ impl Coverage {
         false
     }
 
+    /// A fence represents the positions on the edge of a zone (i.e. square on
+    /// the map). It's convenient to enumerate these positions specifically
+    /// instead of starting with (0, 0).
+    pub fn get_fences(&self) -> Vec<Position> {
+        let mut fences = Vec::new();
+
+        for zone in self.zones.iter() {
+            fences.extend(zone.get_fence());
+        }
+
+        fences
+    }
+
     pub fn get_min_reach(&self) -> Position {
         self.min_reach
     }

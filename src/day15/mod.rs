@@ -1,7 +1,5 @@
 use crate::day15::coverage::Coverage;
 
-use self::position::Position;
-
 mod coverage;
 mod position;
 mod zone;
@@ -11,30 +9,24 @@ pub fn solve() {
 
     let coverage = Coverage::from(input);
 
-    let min_x = std::cmp::max(coverage.get_min_reach().x, MIN_X);
-    let max_x = std::cmp::min(coverage.get_max_reach().x, MAX_X);
-
-    println!("searching for {} <= x <= {}", min_x, max_x);
-
-    let min_y = std::cmp::max(coverage.get_min_reach().y, MIN_Y);
-    let max_y = std::cmp::min(coverage.get_max_reach().y, MAX_Y);
-
-    println!("searching for {} <= y <= {}", min_y, max_y);
-
     let mut distress_signal = None;
 
-    for x in min_x..max_x + 1 {
-        for y in min_y..max_y + 1 {
-            let point = Position::new(x, y);
-
-            if coverage.is_occupied(point) || coverage.contains(point) {
-                continue;
-            }
-
-            distress_signal = Some(point);
-
-            println!("found a solution at {:?}", point);
+    for point in coverage.get_fences() {
+        if point.x > MAX_X || point.x < MIN_X {
+            continue;
         }
+
+        if point.y > MAX_Y || point.y < MIN_Y {
+            continue;
+        }
+
+        if coverage.is_occupied(point) || coverage.contains(point) {
+            continue;
+        }
+
+        distress_signal = Some(point);
+
+        break;
     }
 
     let distress_signal = distress_signal.unwrap();
@@ -53,25 +45,6 @@ const MIN_Y: isize = 0;
 const MAX_Y: isize = 4_000_000;
 
 const X_THINGY: isize = 4_000_000;
-
-const SAMPLE_Y: isize = 10;
-
-const SAMPLE_INPUT: &str = r"Sensor at x=2, y=18: closest beacon is at x=-2, y=15
-Sensor at x=9, y=16: closest beacon is at x=10, y=16
-Sensor at x=13, y=2: closest beacon is at x=15, y=3
-Sensor at x=12, y=14: closest beacon is at x=10, y=16
-Sensor at x=10, y=20: closest beacon is at x=10, y=16
-Sensor at x=14, y=17: closest beacon is at x=10, y=16
-Sensor at x=8, y=7: closest beacon is at x=2, y=10
-Sensor at x=2, y=0: closest beacon is at x=2, y=10
-Sensor at x=0, y=11: closest beacon is at x=2, y=10
-Sensor at x=20, y=14: closest beacon is at x=25, y=17
-Sensor at x=17, y=20: closest beacon is at x=21, y=22
-Sensor at x=16, y=7: closest beacon is at x=15, y=3
-Sensor at x=14, y=3: closest beacon is at x=15, y=3
-Sensor at x=20, y=1: closest beacon is at x=15, y=3";
-
-const PUZZLE_Y: isize = 2_000_000;
 
 const PUZZLE_INPUT: &str = r"Sensor at x=3772068, y=2853720: closest beacon is at x=4068389, y=2345925
 Sensor at x=78607, y=2544104: closest beacon is at x=-152196, y=4183739

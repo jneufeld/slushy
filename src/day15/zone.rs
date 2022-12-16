@@ -1,13 +1,13 @@
 use super::position::Position;
 
 /// A zone is the space covered by a sensor and beacon. Internally, this space
-/// is represented by a triange (and therefore a square). This data structure
+/// is represented by a triangle (and therefore a square). This data structure
 /// provides a fast interface for determining if it contains a point via
 /// `contains`.
 ///
 /// A sensor and beacon determine a square. The sensor's point and its Manhattan
-/// distance to the beacon describe triangles. Any of four trianges can be
-/// generated from the point and distance. Rotating any triange to another
+/// distance to the beacon describe triangles. Any of four triangles can be
+/// generated from the point and distance. Rotating any triangle to another
 /// quadrant describes the square in that quadrant.
 #[derive(Debug, Clone, Copy)]
 pub struct Zone {
@@ -44,6 +44,41 @@ impl Zone {
         let distance = self.point.get_manhattan_distance(point);
 
         self.distance >= distance
+    }
+
+    pub fn get_fence(&self) -> Vec<Position> {
+        let mut fence = Vec::new();
+
+        let past_fence_distance = self.distance + 1;
+
+        for x_component in 0..past_fence_distance {
+            let y_component = past_fence_distance - x_component;
+
+            let x = self.point.x + x_component as isize;
+            let y = self.point.y + y_component as isize;
+
+            fence.push(Position::new(x, y));
+
+            // 90 degree clockwise rotation: (x,y) becomes (y,-x)
+            let x_90 = self.point.y + y_component as isize;
+            let y_90 = self.point.x - x_component as isize;
+
+            fence.push(Position::new(x_90, y_90));
+
+            // 180 degree clockwise rotation: (x, y) becomes (-x,-y)
+            let x_180 = self.point.x - x_component as isize;
+            let y_180 = self.point.y - y_component as isize;
+
+            fence.push(Position::new(x_180, y_180));
+
+            // 270 degree clockwise rotation: (x,y) becomes (-y,x)
+            let x_270 = self.point.y - y_component as isize;
+            let y_270 = self.point.x + x_component as isize;
+
+            fence.push(Position::new(x_270, y_270));
+        }
+
+        fence
     }
 
     pub fn get_up_reach(&self) -> isize {
