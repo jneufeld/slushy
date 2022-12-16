@@ -1,159 +1,36 @@
-use std::collections::HashSet;
+use crate::day15::coverage::Coverage;
 
-use lazy_static::lazy_static;
-use regex::Regex;
+use self::position::Position;
+
+mod coverage;
+mod position;
+mod zone;
 
 pub fn solve() {
-    let input = SAMPLE;
-    let report = Report::from(input);
+    let input = PUZZLE_INPUT;
+    let magic_y = PUZZLE_Y;
 
-    let magic_y = 10;
+    let coverage = Coverage::from(input);
 
-    let count = report
-        .scanned
-        .iter()
-        .filter(|position| position.y == magic_y)
-        .count();
+    let min_x = coverage.get_min_reach().x;
+    let max_x = coverage.get_max_reach().y;
 
-    println!("count at y={}: {}", magic_y, count);
-}
+    let mut count = 0;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Position {
-    x: isize,
-    y: isize,
-}
+    for x in min_x..max_x {
+        let p = Position::new(x, magic_y);
 
-impl Position {
-    fn new(x: isize, y: isize) -> Self {
-        Position { x, y }
-    }
-
-    fn get_scanned(&self, beacon: Position) -> HashSet<Position> {
-        let mut scanned = HashSet::new();
-
-        let distance = self.get_manhattan_distance(beacon);
-
-        println!(
-            "distance between {:?} and {:?} is {}",
-            self, beacon, distance
-        );
-
-        for x in 0..distance + 1 {
-            let left_x = self.x - x as isize;
-            let right_x = self.x + x as isize;
-
-            for y in 0..distance + 1 - x {
-                let up_y = self.y + y as isize;
-                let down_y = self.y - y as isize;
-
-                //println!(
-                //    "\tadding ({}, {}), ({}, {}), ({}, {}), and ({}, {})",
-                //    left_x,
-                //    up_y,
-                //    left_x,
-                //    down_y,
-                //    right_x,
-                //    up_y,
-                //    right_x,
-                //    down_y
-                //);
-
-                scanned.insert(Position::new(left_x, up_y));
-                scanned.insert(Position::new(left_x, down_y));
-
-                scanned.insert(Position::new(right_x, up_y));
-                scanned.insert(Position::new(right_x, down_y));
-            }
-        }
-
-        scanned
-    }
-
-    fn get_manhattan_distance(&self, other: Position) -> usize {
-        let x_distance = self.x.abs_diff(other.x);
-        let y_distance = self.y.abs_diff(other.y);
-
-        x_distance + y_distance
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Square {
-    top_left: Position,
-    bottom_right: Position,
-}
-
-impl Square {
-    fn new(sensor: Position, beacon: Position) -> Self {
-        let distance = sensor.get_manhattan_distance(beacon) as isize;
-
-        let top_left = Position::new(sensor.x + distance, sensor.y + distance);
-        let bottom_right =
-            Position::new(sensor.x - distance, sensor.y - distance);
-
-        Square {
-            top_left,
-            bottom_right,
+        if !coverage.is_occupied(p) && coverage.contains(p) {
+            count += 1;
         }
     }
+
+    println!("y={} count={}", magic_y, count);
 }
 
-struct Report {
-    sensors: HashSet<Position>,
-    beacons: HashSet<Position>,
-    scanned: HashSet<Position>,
-}
+const SAMPLE_Y: isize = 10;
 
-lazy_static! {
-    static ref LINE_REGEX: Regex = Regex::new(
-        r"Sensor at x=(-?\d+), y=(-?\d+): closest beacon is at x=(-?\d+), y=(-?\d+)"
-    )
-    .unwrap();
-}
-
-impl From<&str> for Report {
-    fn from(input: &str) -> Self {
-        let mut sensors = HashSet::new();
-        let mut beacons = HashSet::new();
-        let mut scanned = HashSet::new();
-
-        for line in input.split('\n') {
-            let (sensor, beacon) = parse_positions(line);
-
-            sensors.insert(sensor);
-            beacons.insert(beacon);
-
-            scanned.extend(sensor.get_scanned(beacon));
-
-            print!("sensor: {:?}\nbeacon: {:?}\n\n", sensor, beacon);
-        }
-
-        Report {
-            sensors,
-            beacons,
-            scanned,
-        }
-    }
-}
-
-fn parse_positions(line: &str) -> (Position, Position) {
-    let captures = LINE_REGEX.captures(line).unwrap();
-
-    let sensor_x = captures.get(1).unwrap().as_str().parse().unwrap();
-    let sensor_y = captures.get(2).unwrap().as_str().parse().unwrap();
-
-    let sensor = Position::new(sensor_x, sensor_y);
-
-    let beacon_x = captures.get(3).unwrap().as_str().parse().unwrap();
-    let beacon_y = captures.get(4).unwrap().as_str().parse().unwrap();
-
-    let beacon = Position::new(beacon_x, beacon_y);
-
-    (sensor, beacon)
-}
-
-const SAMPLE: &str = r"Sensor at x=2, y=18: closest beacon is at x=-2, y=15
+const SAMPLE_INPUT: &str = r"Sensor at x=2, y=18: closest beacon is at x=-2, y=15
 Sensor at x=9, y=16: closest beacon is at x=10, y=16
 Sensor at x=13, y=2: closest beacon is at x=15, y=3
 Sensor at x=12, y=14: closest beacon is at x=10, y=16
@@ -168,7 +45,9 @@ Sensor at x=16, y=7: closest beacon is at x=15, y=3
 Sensor at x=14, y=3: closest beacon is at x=15, y=3
 Sensor at x=20, y=1: closest beacon is at x=15, y=3";
 
-const PUZZLE: &str = r"Sensor at x=3772068, y=2853720: closest beacon is at x=4068389, y=2345925
+const PUZZLE_Y: isize = 2_000_000;
+
+const PUZZLE_INPUT: &str = r"Sensor at x=3772068, y=2853720: closest beacon is at x=4068389, y=2345925
 Sensor at x=78607, y=2544104: closest beacon is at x=-152196, y=4183739
 Sensor at x=3239531, y=3939220: closest beacon is at x=3568548, y=4206192
 Sensor at x=339124, y=989831: closest beacon is at x=570292, y=1048239
