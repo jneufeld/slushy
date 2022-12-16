@@ -17,11 +17,9 @@ lazy_static = "1.4.0"
 # Justification: sanity
 regex = "1.7"
 
-# Following the best recommendations I know to optimize for binary size above
-# other factors like speed:
+# Following the best recommendations I know to optimize for binary size above:
 #
 # https://github.com/johnthagen/min-sized-rust#strip-symbols-from-binary
 [profile.release]
 strip = true
 lto = true
-opt-level = "z"
